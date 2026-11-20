@@ -94,8 +94,7 @@ export default function App() {
     sessionStorage.setItem('bowlerx-cart-count', String(cart));
   }, [cart]);
   if (hash === '#admin') {
-    if (sessionStorage.getItem('bowlerx-admin-token')) return <Admin />;
-    return <Storefront setCart={setCart} cartCount={cart} />;
+    return <Admin />;
   }
   if (hash.startsWith('#product/')) return <ProductPage id={hash.slice(9)} setCart={setCart} />;
   if (hash.startsWith('#brand/') || hash.startsWith('#category/') || hash === '#new-arrivals') return <CollectionPage path={hash} />;
