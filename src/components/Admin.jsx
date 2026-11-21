@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LayoutDashboard, Boxes, CircleDot, Package, Tag, Layers, ShoppingBag, Users, Warehouse, House, Settings, Search, Plus, Edit3, Trash2, LogOut, X, Upload } from 'lucide-react';
 import SiteLogo from './SiteLogo.jsx';
 import { apiUrl } from '../api.js';
@@ -127,6 +127,11 @@ export default function Admin() {
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
   const [editing, setEditing] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => localStorage.getItem('bowlerx-browser-notifications') === 'enabled');
+  const [visitorNotice, setVisitorNotice] = useState('');
+  const [systemStatus, setSystemStatus] = useState({ mongoDb: false, r2: false });
+  const visitorBaseline = useRef(null);
 
   async function load() {
     if (!token) return;
@@ -141,6 +146,17 @@ export default function Admin() {
   useEffect(() => { load(); }, [token]);
   function login(nextToken) { sessionStorage.setItem('bowlerx-admin-token', nextToken); setToken(nextToken); }
   function logout() { sessionStorage.removeItem('bowlerx-admin-token'); setToken(''); }
+
+  useEffect(() => {
+    fetch(apiUrl('/api/health')).then((response) => response.ok ? response.json() : null).then((data) => {
+      if (data) setSystemStatus({ mongoDb: data.mongoDb === true, r2: data.r2 === true });
+    }).catch(() => setSystemStatus({ mongoDb: false, r2: false }));
+  }, [token]);
+
+  useEffect(() => {
+    document.body.classList.toggle('admin-menu-open', menuOpen);
+    return () => document.body.classList.remove('admin-menu-open');
+  }, [menuOpen]);
 
   if (!token) return <Login onLogin={login} />;
 
@@ -170,11 +186,25 @@ export default function Admin() {
     await api(`/api/admin/products/${product._id}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: !product[key] }) }, token); await load();
   }
 
-  return <div className="admin"><div className="wp-admin-bar"><button onClick={() => { location.hash = ''; }}>◉ BowlerX</button><button onClick={() => { location.hash = ''; }}>View Store</button><button className="wp-user">Howdy, Admin ▾</button></div><aside><button className="brand admin-brand" onClick={() => { location.hash = ''; }}><SiteLogo className="sidebar-logo" /><strong>BOWLERX</strong></button><nav>{sections.map(([name, Icon]) => <button key={name} className={active === name ? 'active' : ''} onClick={() => setActive(name)}><Icon /> <span>{name}</span></button>)}</nav><button className="logout-button" onClick={logout}><LogOut /> <span>Sign out</span></button></aside><section className="admin-main"><header><div><span>ADMIN PANEL</span><h1>{active}</h1></div><div className="admin-actions"><button className="wp-add-button" onClick={() => { setEditing(null); setFormOpen(true); }}>Add New</button><div className="avatar">AD</div></div></header>
+  const mobileBarTitle = active === 'Dashboard Overview' ? 'DASHBOARD' : active.toUpperCase();
+  const sidebarStatus = systemStatus.mongoDb ? 'Database connected' : 'Database disconnected';
+
+  return (
+    <div className={`admin ${menuOpen ? 'menu-open' : ''}`}>
+      <div className="mobile-admin-bar"><button className="mobile-menu-button" aria-label="Open navigation" onClick={() => setMenuOpen(true)}>☰</button><div><span>BOWLERSX</span><b>/</b><strong>{mobileBarTitle}</strong></div><button className="mobile-signout" type="button" onClick={logout}>Sign out <span>↗</span></button></div>
+      {menuOpen && <button className="mobile-menu-backdrop" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
+      <div className="wp-admin-bar"><button onClick={() => { location.hash = ''; }}>◉ BowlerX</button><button onClick={() => { location.hash = ''; }}>View Store</button><button className="wp-user">Howdy, Admin ▾</button></div>
+      <aside>
+        <button className="mobile-menu-close" aria-label="Close navigation" onClick={() => setMenuOpen(false)}>×</button>
+        <button className="brand admin-brand" onClick={() => { location.hash = ''; }}><SiteLogo className="sidebar-logo" /><strong>BOWLERX<small>ADMIN</small></strong></button>
+        <nav>{sections.map(([name, Icon]) => <button key={name} className={active === name ? 'active' : ''} onClick={() => { setActive(name); setMenuOpen(false); }}><Icon /> <span>{name}</span>{name === 'Orders' && stats.orderCount > 0 && <b className="mobile-nav-badge">{stats.orderCount}</b>}</button>)}</nav>
+        <div className="sidebar-footer"><div className={systemStatus.mongoDb ? 'connected' : 'disconnected'}><i/><span>{sidebarStatus}</span></div><button type="button" onClick={() => { location.hash = ''; setMenuOpen(false); }}>View storefront <b>↗</b></button></div>
+        <button className="logout-button" onClick={logout}><LogOut /> <span>Sign out</span></button>
+      </aside>
+      <section className="admin-main">
+        <header><div><span>ADMIN PANEL</span><h1>{active}</h1></div><div className="admin-actions"><button className="wp-add-button" onClick={() => { setEditing(null); setFormOpen(true); }}>Add New</button><div className="avatar">AD</div></div></header>
 
   {active === 'Dashboard Overview' && <AnalyticsPanel stats={stats} />}
-
-  {active === 'Dashboard Overview' && <><div className="stats">{[[`$${Number(stats.revenue || 0).toFixed(2)}`,'Revenue'],[stats.orderCount || 0,'Orders'],[stats.productCount || 0,'Products'],[stats.lowStockCount || 0,'Low stock']].map(([value,label], index) => <article key={label}><div className={`stat-icon s${index}`}><DollarIcon /></div><div><span>{label}</span><strong>{value}</strong><small>{stats.publishedCount || 0} published</small></div></article>)}</div><div className="admin-grid"><article className="chart"><div className="card-head"><div><span>CATALOG</span><h3>Store overview</h3></div></div><div className="overview-bars">{[['Published',stats.publishedCount||0],['Draft',(stats.productCount||0)-(stats.publishedCount||0)],['Brands',stats.brandCount||0],['Categories',stats.categoryCount||0]].map(([label,value]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div></article><article className="orders"><div className="card-head"><div><span>RECENT ORDERS</span><h3>Latest purchases</h3></div></div>{orders.slice(0,5).map((order) => <div className="order-row" key={order._id}><b>{order._id.slice(-6)}</b><span>{order.customer}</span><strong>${Number(order.total).toFixed(2)}</strong><em>{order.status}</em></div>)}{orders.length === 0 && <div className="empty-state">No orders yet</div>}</article></div></>}
 
   {['All Products','Bowling Balls','Bowling Shoes','Bowling Bags','Accessories','New Arrivals','Inventory'].includes(active) && <><div className="table-toolbar"><div className="table-search"><Search /><input placeholder="Search products" value={search} onChange={(e) => setSearch(e.target.value)} /></div>{active === 'All Products' && <><select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">All status</option><option value="published">Published</option><option value="draft">Draft</option></select><select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)}><option value="all">All brands</option>{brands.map((brand) => <option key={brand._id} value={brand.name}>{brand.name}</option>)}</select><select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="all">All categories</option>{categories.map((category) => <option key={category._id} value={category.name}>{category.name}</option>)}</select><select value={availabilityFilter} onChange={(e) => setAvailabilityFilter(e.target.value)}><option value="all">All availability</option><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option><option value="preorder">Preorder</option></select></>}
   <button className="primary-button" onClick={() => { setEditing(null); setFormOpen(true); }}><Plus /> ADD PRODUCT</button></div><div className="admin-table"><table><thead><tr><th>Product</th><th>Brand</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filtered.map((product) => <tr key={product._id}><td><div className="product-table-name">{product.imageUrl || product.images?.[0]?.url ? <img src={product.imageUrl || product.images[0].url} alt="" /> : <div className="image-fallback" />}<div><strong>{product.name}</strong><small>{product.sku || 'No SKU'}</small></div></div></td><td>{product.brandName || '—'}</td><td>{product.subcategoryName || product.categoryName || '—'}</td><td>${Number(product.price).toFixed(2)}</td><td>{product.stock ?? 0}</td><td><button className={`status-pill ${product.published ? 'published' : ''}`} onClick={() => toggleStatus(product, 'published')}>{product.published ? 'Published' : 'Draft'}</button></td><td><div className="row-actions"><button title="Edit" onClick={() => { setEditing(product); setFormOpen(true); }}><Edit3 /></button><button title="Delete" onClick={() => deleteProduct(product)}><Trash2 /></button></div></td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty-state">No products match this view.</div>}</div></>}
@@ -185,7 +215,10 @@ export default function Admin() {
   {active === 'Customers' && <div className="admin-table"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th></tr></thead><tbody>{customers.map((customer) => <tr key={customer._id}><td>{customer.name}</td><td>{customer.email}</td><td>{customer.phone || '—'}</td><td>{customer.active ? 'Active' : 'Inactive'}</td></tr>)}</tbody></table>{customers.length === 0 && <div className="empty-state">No customer records yet</div>}</div>}
   {active === 'Homepage Management' && <HomepageManager active={active} token={token} />}
   {active === 'Website Settings' && <WebsiteSettings token={token} />}
-  </section>{formOpen && <ProductForm product={editing} brands={brands} categories={categories} token={token} onClose={() => setFormOpen(false)} onSaved={async () => { setFormOpen(false); await load(); }} />}</div>;
+      </section>
+      {formOpen && <ProductForm product={editing} brands={brands} categories={categories} token={token} onClose={() => setFormOpen(false)} onSaved={async () => { setFormOpen(false); await load(); }} />}
+    </div>
+  );
 }
 
 function DollarIcon(){ return <span>$</span>; }
@@ -241,8 +274,24 @@ function AnalyticsPanel({ stats }) {
   const dayRows = sales.length ? sales : [];
   const traffic = stats.trafficByDay || [];
   const maxVisits = Math.max(1, ...traffic.map((item) => Number(item.visits || 0)));
+  const statusCounts = Object.fromEntries((stats.orderStatusCounts || []).map((item) => [String(item._id || '').toLowerCase(), Number(item.count || 0)]));
+  const mobileCards = [
+    ['Visitors today', stats.visitsToday || 0],
+    ['Visitors this week', stats.visitsSevenDays || 0],
+    ['Visitors this month', stats.visitsMonth || 0],
+    ['Total products', stats.productCount || 0],
+    ['Published', stats.publishedCount || 0],
+    ['Draft', Math.max(0, (stats.productCount || 0) - (stats.publishedCount || 0))],
+    ['Order requests', stats.orderCount || 0],
+    ['Pending requests', statusCounts.processing || 0],
+    ['Confirmed', statusCounts.confirmed || 0],
+    ['Delivered', statusCounts.delivered || 0],
+  ];
   return <div className="analytics-panel">
-    <div className="analytics-summary">
+    <div className="mobile-overview-heading"><span>STORE CONTROL / DASHBOARD</span><h2>STORE OVERVIEW</h2><p>A live view of your catalogue and customer requests.</p></div>
+    <div className="mobile-status-strip"><span>Website online</span><span>Database connected</span><span>Images: Cloudflare R2 / persistent</span></div>
+    <div className="mobile-overview-grid">{mobileCards.map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong><em>live records</em></article>)}</div>
+    <div className="desktop-analytics-summary analytics-summary">
       <article><span>Revenue</span><strong>${Number(stats.revenue || 0).toFixed(2)}</strong></article>
       <article><span>Orders</span><strong>{stats.orderCount || 0}</strong></article>
       <article><span>Customers</span><strong>{stats.customerCount || 0}</strong></article>
@@ -250,7 +299,7 @@ function AnalyticsPanel({ stats }) {
       <article><span>Visitors today</span><strong>{stats.visitsToday || 0}</strong></article>
       <article><span>Unique visitors / 7 days</span><strong>{stats.uniqueVisitorsSevenDays || 0}</strong></article>
     </div>
-    <div className="analytics-grid">
+    <div className="desktop-analytics-grid analytics-grid">
       <article className="analytics-chart"><div className="card-head"><div><span>LAST 7 DAYS</span><h3>Sales revenue</h3></div></div>{dayRows.length ? <div className="analytics-bars">{dayRows.map((item) => <div key={item._id}><span>${Number(item.revenue || 0).toFixed(0)}</span><i style={{height:`${Math.max(4,(Number(item.revenue||0)/maxRevenue)*180)}px`}}/><small>{item._id}</small></div>)}</div> : <div className="empty-state">No sales recorded in the last 7 days</div>}</article>
       <article className="analytics-chart"><div className="card-head"><div><span>CATALOG</span><h3>Inventory overview</h3></div></div><div className="overview-bars"><div><strong>{stats.publishedCount||0}</strong><span>Published</span></div><div><strong>{Math.max(0,(stats.productCount||0)-(stats.publishedCount||0))}</strong><span>Draft</span></div><div><strong>{stats.brandCount||0}</strong><span>Brands</span></div><div><strong>{stats.categoryCount||0}</strong><span>Categories</span></div></div></article>
       <article className="analytics-chart"><div className="card-head"><div><span>LAST 7 DAYS</span><h3>Website visitors</h3></div></div>{traffic.length ? <div className="analytics-bars visitor-bars">{traffic.map((item) => <div key={item._id}><span>{item.visits} visits · {item.uniqueVisitors} unique</span><i style={{height:`${Math.max(4,(Number(item.visits||0)/maxVisits)*180)}px`}}/><small>{item._id}</small></div>)}</div> : <div className="empty-state">No visitor activity recorded</div>}</article>
