@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import Storefront from './components/Storefront.jsx';
+import Storefront, { ProductCard } from './components/Storefront.jsx';
 import Admin from './components/Admin.jsx';
 import Checkout from './components/Checkout.jsx';
 import { apiUrl } from './api.js';
 
-function CollectionPage({ path }) {
+function CollectionPage({ path, setCart }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -17,7 +17,7 @@ function CollectionPage({ path }) {
     } else if (path === '#new-arrivals') query = 'newArrival=true';
     fetch(apiUrl(`/api/catalog${query ? `?${query}` : ''}`)).then((response) => response.ok ? response.json() : []).then(setProducts).finally(() => setLoading(false));
   }, [path]);
-  return <main className="collection-page"><button className="back-button" onClick={() => { location.hash = ''; }}>← Back to store</button><h1>{path === '#new-arrivals' ? 'New Arrivals' : decodeURIComponent(path.split('/').pop())}</h1>{loading ? <p>Loading products...</p> : products.length ? <div className="product-grid collection-grid">{products.map((product) => <article className="product-card" key={product._id}><div className="product-image">{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <strong>{product.name}</strong>}</div><div className="product-info"><p>{product.name}</p><strong>${Number(product.weightPrices?.[0]?.price ?? product.price).toFixed(2)}</strong></div></article>)}</div> : <div className="empty-state">No published products found.</div>}</main>;
+  return <main className="collection-page"><button className="back-button" onClick={() => { location.hash = ''; }}>← Back to store</button><h1>{path === '#new-arrivals' ? 'New Arrivals' : decodeURIComponent(path.split('/').pop())}</h1>{loading ? <p>Loading products...</p> : products.length ? <div className="product-grid collection-grid">{products.map((product) => <ProductCard key={product._id} product={product} add={() => setCart((value) => value + 1)} />)}</div> : <div className="empty-state">No published products found.</div>}</main>;
 }
 
 function ProductPage({ id, setCart }) {
@@ -97,7 +97,7 @@ export default function App() {
     return <Admin />;
   }
   if (hash.startsWith('#product/')) return <ProductPage id={hash.slice(9)} setCart={setCart} />;
-  if (hash.startsWith('#brand/') || hash.startsWith('#category/') || hash === '#new-arrivals') return <CollectionPage path={hash} />;
+  if (hash.startsWith('#brand/') || hash.startsWith('#category/') || hash === '#new-arrivals') return <CollectionPage path={hash} setCart={setCart} />;
   if (hash === '#checkout' || hash === '#cart') return <Checkout cartItems={cartItems} setCartItems={setCartItems} setCart={setCart} />;
   return <Storefront setCart={setCart} cartCount={cart} />;
 }

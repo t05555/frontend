@@ -25,7 +25,7 @@ function Header({ cart, onSearch, search, settings }) {
   </>;
 }
 
-function ProductCard({ product, add, sale }) {
+export function ProductCard({ product, add, sale }) {
   const [selectedWeight, setSelectedWeight] = useState(product.weightOptions?.[0] || '');
   const image = product.imageUrl || product.images?.[0]?.url;
   const selectedPrice = product.weightPrices?.find((item) => item.weight === selectedWeight)?.price ?? product.price;
@@ -35,9 +35,9 @@ function ProductCard({ product, add, sale }) {
     }}>{product.availability === 'out_of_stock' ? 'OUT OF STOCK' : 'ADD TO CART'}</button></div></article>;
 }
 
-function CatalogSection({ title, eyebrow, products, setCart, sale }) {
+function CatalogSection({ title, eyebrow, products, setCart, sale, showViewAll = true }) {
   if (!products?.length) return null;
-  return <section className="catalog"><div className="section-title"><div><span>{eyebrow}</span><h2>{title}</h2></div><button>VIEW ALL <ChevronRight/></button></div><div className="product-grid">{products.map((product) => <ProductCard key={product._id} product={product} sale={sale} add={() => setCart((value) => value + 1)} />)}</div></section>;
+  return <section className="catalog"><div className="section-title"><div><span>{eyebrow}</span><h2>{title}</h2></div>{showViewAll && <button>VIEW ALL <ChevronRight/></button>}</div><div className="product-grid">{products.map((product) => <ProductCard key={product._id} product={product} sale={sale} add={() => setCart((value) => value + 1)} />)}</div></section>;
 }
 
 export default function Storefront({ setCart, cartCount }) {
@@ -45,6 +45,7 @@ export default function Storefront({ setCart, cartCount }) {
   const [search, setSearch] = useState('');
   const [data, setData] = useState({ homepage: [], newArrivals: [], featured: [], bestSellers: [], accessories: [], balls: [], shoes: [], bags: [], brands: [], categories: [] });
   const [catalog, setCatalog] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
   const [settings, setSettings] = useState({ phone: '', email: '', address: '' });
 
   useEffect(() => {
@@ -56,8 +57,11 @@ export default function Storefront({ setCart, cartCount }) {
   }, []);
 
   useEffect(() => {
-    if (!search) return;
-    const timeout = setTimeout(() => fetch(apiUrl(`/api/catalog?search=${encodeURIComponent(search)}`)).then((response) => response.ok ? response.json() : []).then(setCatalog).catch(() => {}), 250);
+    if (!search) {
+      setSearchResults([]);
+      return;
+    }
+    const timeout = setTimeout(() => fetch(apiUrl(`/api/catalog?search=${encodeURIComponent(search)}`)).then((response) => response.ok ? response.json() : []).then(setSearchResults).catch(() => {}), 250);
     return () => clearTimeout(timeout);
   }, [search]);
 
@@ -71,11 +75,12 @@ export default function Storefront({ setCart, cartCount }) {
   return <><Header cart={cartCount} onSearch={setSearch} search={search} settings={settings} /><main>
     {heroEnabled && <section className="hero"><div className="hero-copy"><span>NEW SEASON COLLECTION</span><h1>{slides[slide].title}</h1><p>{slides[slide].subtitle}</p><button onClick={() => { if (slides[slide].buttonUrl) location.hash = slides[slide].buttonUrl; }}>{slides[slide].buttonText || 'SHOP NOW'} <ChevronRight/></button></div>{slides[slide].imageUrl ? <div className="hero-orbit"><img className="hero-banner-image" src={slides[slide].imageUrl} alt={slides[slide].title}/></div> : <div className="hero-orbit"><div className="giant-ball"><div className="ball-holes"><i/><i/><i/></div></div></div>}<button className="slider prev" onClick={() => setSlide(slide ? 0 : 1)}><ChevronLeft/></button><button className="slider next" onClick={() => setSlide(slide ? 0 : 1)}><ChevronRight/></button></section>}
     <section className="trust"><span><Truck/> FAST, INSURED SHIPPING</span><span><ShieldCheck/> 100% FACTORY FIRST QUALITY</span><span><Star/> PBA & PWBA TRUSTED</span></section>
-    {search && <CatalogSection title="Search results" eyebrow="STORE SEARCH" products={catalog} setCart={setCart} />}
-    {homeSection('categories')?.enabled !== false && data.categories.length > 0 && <section className="catalog category-section"><div className="section-title"><div><span>{homeSection('categories')?.subtitle || 'EXPLORE THE PRO SHOP'}</span><h2>{homeSection('categories')?.title || 'SHOP BY CATEGORY'}</h2></div></div><div className="category-grid">{data.categories.filter((category) => !category.parent).map((category) => <button key={category._id} onClick={() => { location.hash = `#category/${encodeURIComponent(category.name)}`; }}><div>{category.imageUrl ? <img src={category.imageUrl} alt={category.name}/> : <span>{category.name.slice(0,1)}</span>}</div><strong>{category.name}</strong></button>)}</div></section>}
+    {search && <CatalogSection title="Search results" eyebrow="STORE SEARCH" products={searchResults} setCart={setCart} showViewAll={false} />}
+    {!search && <CatalogSection title="SHOP ALL PRODUCTS" eyebrow="ALL PUBLISHED PRODUCTS" products={catalog} setCart={setCart} showViewAll={false} />}
+    {homeSection('categories')?.enabled !== false && data.categories.length > 0 && <section className="catalog category-section"><div className="section-title"><div><span>{homeSection('categories')?.subtitle || 'EXPLORE THE PRO SHOP'}</span><h2>{homeSection('categories')?.title || 'SHOP BY CATEGORY'}</h2></div></div><div className="category-grid">{data.categories.filter((category) => !category.parent).map((category) => <button key={category._id} onClick={() => { location.hash = `#category/${encodeURIComponent(category.name)}`; }}><div>{category.imageUrl ? <img src={category.imageUrl} alt=""/> : <span>{category.name.slice(0,1)}</span>}</div><strong>{category.name}</strong></button>)}</div></section>}
     {homeSection('newArrivals')?.enabled !== false && <CatalogSection title={homeSection('newArrivals')?.title || 'NEW ARRIVALS'} eyebrow={homeSection('newArrivals')?.subtitle || 'JUST LANDED'} products={data.newArrivals} setCart={setCart} />}
     {homeSection('featured')?.enabled !== false && <CatalogSection title={homeSection('featured')?.title || 'FEATURED BOWLING BALLS'} eyebrow="PRO SHOP PICKS" products={data.featured.length ? data.featured : data.balls} setCart={setCart} />}
-    {homeSection('brands')?.enabled !== false && data.brands.length > 0 && <section className="catalog brand-section"><div className="section-title"><div><span>TOP MANUFACTURERS</span><h2>{homeSection('brands')?.title || 'SHOP BY BRAND'}</h2></div></div><div className="brand-grid">{data.brands.map((brand) => <button key={brand._id} onClick={() => { location.hash = `#brand/${encodeURIComponent(brand.name)}`; }}>{brand.logoUrl ? <img src={brand.logoUrl} alt={brand.name}/> : <strong>{brand.name}</strong>}</button>)}</div></section>}
+    {homeSection('brands')?.enabled !== false && data.brands.length > 0 && <section className="catalog brand-section"><div className="section-title"><div><span>TOP MANUFACTURERS</span><h2>{homeSection('brands')?.title || 'SHOP BY BRAND'}</h2></div></div><div className="brand-grid">{data.brands.map((brand) => <button key={brand._id} onClick={() => { location.hash = `#brand/${encodeURIComponent(brand.name)}`; }}><span className="taxonomy-mark">{brand.logoUrl ? <img src={brand.logoUrl} alt=""/> : <span>{brand.name.slice(0,1)}</span>}</span><strong>{brand.name}</strong></button>)}</div></section>}
     {homeSection('accessories')?.enabled !== false && <CatalogSection title={homeSection('accessories')?.title || 'BOWLING ACCESSORIES'} eyebrow="COMPLETE YOUR GAME" products={data.accessories} setCart={setCart} />}
     {homeSection('promotions')?.enabled !== false && <section className="promo"><div><span>MEMBER EXCLUSIVE</span><h2>ENJOY ADDED SAVINGS<br/>AND FREE SHIPPING</h2><button>EXPLORE MEMBERSHIP</button></div><div className="lane-art">🎳</div></section>}
     {homeSection('bestSellers')?.enabled !== false && <CatalogSection title={homeSection('bestSellers')?.title || 'BEST SELLERS'} eyebrow="MOST POPULAR" products={data.bestSellers} setCart={setCart} sale />}

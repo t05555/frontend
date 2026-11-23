@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight, ShoppingCart, Trash2, Truck, ShieldCheck, CreditCard, Lock } from 'lucide-react';
+import { ChevronRight, ShoppingCart, Trash2, Truck, ShieldCheck } from 'lucide-react';
 import SiteLogo from './SiteLogo.jsx';
 import OrderChat from './OrderChat.jsx';
 import { apiUrl } from '../api.js';
@@ -28,7 +28,7 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
   const [error, setError] = useState('');
   const [chatPersistenceWarning, setChatPersistenceWarning] = useState('');
   const [form, setForm] = useState({
-    email:'', firstName:'', lastName:'', company:'', address:'', apartment:'', city:'', state:'', zip:'', country:'United States', phone:'', payment:'card', saveAddress:false,
+    email:'', firstName:'', lastName:'', company:'', address:'', apartment:'', city:'', state:'', zip:'', country:'United States', phone:'', saveAddress:false,
   });
 
   const subtotal = useMemo(() => cartItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0), [cartItems]);
@@ -56,7 +56,7 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
           email: form.email,
           phone: form.phone,
           shippingAddress: { firstName:form.firstName, lastName:form.lastName, company:form.company, address:form.address, apartment:form.apartment, city:form.city, state:form.state, zip:form.zip, country:form.country },
-          paymentMethod: form.payment,
+          paymentMethod: 'manual',
           items: cartItems.map((item) => ({ product: item.productId, name: item.name, quantity:item.quantity, price:item.price, weight:item.weight || '' })),
           total,
         }),
@@ -82,7 +82,7 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
       sessionStorage.removeItem(orderChatStorageKey);
       location.hash = '';
     };
-    return <main className="checkout-page"><div className="checkout-brand"><button onClick={leaveOrderChat}><SiteLogo className="checkout-logo" /></button></div><CheckoutSteps current={2}/><div className="order-complete"><div className="complete-icon">✓</div><span>THANK YOU</span><h1>Order received</h1><p>Your order <b>{orderNumber}</b> has been placed.</p><p className="complete-email">A confirmation will be sent to <b>{form.email || complete.order.email}</b>.</p>{chatPersistenceWarning && <p className="order-chat-unavailable">{chatPersistenceWarning}</p>}{complete.conversationToken ? <OrderChat order={complete.order} conversationToken={complete.conversationToken} /> : <p className="order-chat-unavailable">Your order is confirmed, but a secure chat session could not be started. Contact support with order number {orderNumber}.</p>}<button className="order-chat-return" onClick={leaveOrderChat}>CONTINUE SHOPPING</button></div></main>;
+    return <main className="checkout-page"><div className="checkout-brand"><button onClick={leaveOrderChat}><SiteLogo className="checkout-logo" /></button></div><CheckoutSteps current={2}/><div className="order-complete"><div className="complete-icon">✓</div><span>THANK YOU</span><h1>Order received</h1><p>Your order <b>{orderNumber}</b> has been placed.</p><p className="complete-email">The store team will contact you at <b>{form.email || complete.order.email}</b> to confirm your order and arrange payment.</p>{chatPersistenceWarning && <p className="order-chat-unavailable">{chatPersistenceWarning}</p>}{complete.conversationToken ? <OrderChat order={complete.order} conversationToken={complete.conversationToken} /> : <p className="order-chat-unavailable">Your order is confirmed, but a secure chat session could not be started. Contact support with order number {orderNumber}.</p>}<button className="order-chat-return" onClick={leaveOrderChat}>CONTINUE SHOPPING</button></div></main>;
   }
 
   if (stage === 'details') {
@@ -91,8 +91,8 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
         {error && <div className="checkout-error">{error}</div>}
         <div className="checkout-section"><div className="checkout-heading"><span>1</span><h2>Contact information</h2></div><label>Email address<input required type="email" value={form.email} onChange={(e)=>update('email',e.target.value)} placeholder="you@example.com" /></label><label><input type="checkbox" checked={form.saveAddress} onChange={(e)=>update('saveAddress',e.target.checked)} /> Keep me updated about my order</label></div>
         <div className="checkout-section"><div className="checkout-heading"><span>2</span><h2>Shipping address</h2></div><div className="checkout-grid"><label>First name<input required value={form.firstName} onChange={(e)=>update('firstName',e.target.value)} /></label><label>Last name<input required value={form.lastName} onChange={(e)=>update('lastName',e.target.value)} /></label></div><label>Company (optional)<input value={form.company} onChange={(e)=>update('company',e.target.value)} /></label><label>Street address<input required value={form.address} onChange={(e)=>update('address',e.target.value)} placeholder="Street address" /></label><label>Apartment, suite, etc. (optional)<input value={form.apartment} onChange={(e)=>update('apartment',e.target.value)} /></label><div className="checkout-grid three"><label>City<input required value={form.city} onChange={(e)=>update('city',e.target.value)} /></label><label>State<input required value={form.state} onChange={(e)=>update('state',e.target.value)} /></label><label>ZIP code<input required value={form.zip} onChange={(e)=>update('zip',e.target.value)} /></label></div><div className="checkout-grid"><label>Country<select value={form.country} onChange={(e)=>update('country',e.target.value)}><option>United States</option><option>Canada</option></select></label><label>Phone number<input required type="tel" value={form.phone} onChange={(e)=>update('phone',e.target.value)} /></label></div></div>
-        <div className="checkout-section"><div className="checkout-heading"><span>3</span><h2>Payment</h2></div><div className="payment-options"><label className={form.payment==='card'?'selected':''}><input type="radio" name="payment" value="card" checked={form.payment==='card'} onChange={(e)=>update('payment',e.target.value)} /><CreditCard/><span><b>Credit or debit card</b><small>Secure card payment</small></span></label><label className={form.payment==='paypal'?'selected':''}><input type="radio" name="payment" value="paypal" checked={form.payment==='paypal'} onChange={(e)=>update('payment',e.target.value)} /><span className="paypal-mark">PayPal</span></label></div>{form.payment==='card'&&<div className="card-fields"><label>Card number<input inputMode="numeric" placeholder="1234 5678 9012 3456" /></label><div className="checkout-grid"><label>Expiration<input placeholder="MM / YY" /></label><label>Security code<input inputMode="numeric" placeholder="CVC" /></label></div></div>}</div>
-        <button className="place-order-button" type="submit" disabled={submitting || !cartItems.length}>{submitting?'PLACING ORDER...':'PLACE ORDER'} <Lock /></button>
+        <div className="checkout-section"><div className="checkout-heading"><span>3</span><h2>Payment arrangement</h2></div><div className="checkout-payment-note"><ShieldCheck/><p><b>Payment is arranged after order confirmation.</b><br/>Our team will contact you using the details above to confirm your order and arrange payment.</p></div></div>
+        <button className="place-order-button" type="submit" disabled={submitting || !cartItems.length}>{submitting?'PLACING ORDER...':'PLACE ORDER'}</button>
       </section>
       <aside className="checkout-summary"><h2>Order summary</h2>{cartItems.map((item,index)=><div className="summary-item" key={`${item.productId}-${index}`}><div className="summary-thumb"><ShoppingCart /></div><div><b>{item.name}</b>{item.weight&&<small>{item.weight} lb</small>}<small>Qty {item.quantity}</small></div><strong>{money(item.price*item.quantity)}</strong></div>)}<div className="summary-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="summary-row"><span>Shipping</span><b>{shipping ? money(shipping) : 'FREE'}</b></div><div className="summary-row total"><span>Total</span><b>{money(total)}</b></div><div className="summary-trust"><span><Truck/> Free shipping</span><span><ShieldCheck/> Secure checkout</span></div></aside>
     </form></main>;

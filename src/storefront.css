@@ -1,0 +1,95 @@
+.product-card {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-width: 0;
+}
+
+.product-image {
+  height: auto;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+}
+
+.product-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.product-info .add-button {
+  margin-top: auto;
+}
+
+.category-grid,
+.brand-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.category-grid button,
+.brand-grid button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  height: auto;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 1px solid #e3e7ec;
+  border-radius: 999px;
+  color: inherit;
+  text-align: left;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.category-grid button:hover,
+.brand-grid button:hover {
+  border-color: #111;
+  box-shadow: 0 3px 12px rgb(17 17 17 / 8%);
+}
+
+.category-grid button > div,
+.taxonomy-mark {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #f2f4f6;
+}
+
+.category-grid button > div {
+  height: 36px;
+}
+
+.category-grid button > div > span,
+.taxonomy-mark > span {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.category-grid img,
+.taxonomy-mark img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+}
+
+.taxonomy-mark img {
+  object-fit: contain;
+  padding: 4px;
+}
+
+.category-grid strong,
+.brand-grid strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

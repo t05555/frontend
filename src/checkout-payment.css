@@ -1,0 +1,34 @@
+.checkout-payment-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #d9dee5;
+  border-radius: 5px;
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.checkout-payment-note svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+
+.checkout-payment-note p {
+  margin: 0;
+}
+
+.admin-table td > small {
+  display: block;
+  margin-top: 3px;
+  color: #667085;
+  font-size: 11px;
+}
+
+.admin-table td > small:last-child {
+  max-width: 260px;
+  overflow-wrap: anywhere;
+}
