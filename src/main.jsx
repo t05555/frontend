@@ -7,6 +7,7 @@ import './admin.css';
 import './admin-responsive.css';
 import './admin-premium.css';
 import './admin-polish.css';
+import './admin-mobile-dashboard.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

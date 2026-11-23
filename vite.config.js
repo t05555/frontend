@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const apiProxyTarget = process.env.API_PROXY_TARGET || 'http://localhost:3001';
+const apiProxyTarget = process.env.API_PROXY_TARGET || 'https://bowlersxbackend-1.onrender.com';
 
 export default defineConfig({
   plugins: [react()],
