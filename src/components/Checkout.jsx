@@ -21,9 +21,11 @@ export function CheckoutSteps({ current }) {
   return <div className="checkout-steps">{steps.map((step, index) => <React.Fragment key={step}><div className={index <= current ? 'active' : ''}><b>{index + 1}</b><span>{step}</span></div>{index < 2 && <ChevronRight />}</React.Fragment>)}</div>;
 }
 
-export default function Checkout({ cartItems, setCartItems, setCart }) {
+export default function Checkout({ cartItems, setCartItems, setCart, directItems, setDirectItems }) {
+  const isDirectCheckout = directItems !== null;
+  const checkoutItems = isDirectCheckout ? directItems : cartItems;
   const [complete, setComplete] = useState(restoreOrderChat);
-  const [stage, setStage] = useState(() => restoreOrderChat() ? 'complete' : 'cart');
+  const [stage, setStage] = useState(() => restoreOrderChat() ? 'complete' : isDirectCheckout ? 'details' : 'cart');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [chatPersistenceWarning, setChatPersistenceWarning] = useState('');
@@ -31,7 +33,7 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
     email:'', firstName:'', lastName:'', company:'', address:'', apartment:'', city:'', state:'', zip:'', country:'United States', phone:'', saveAddress:false,
   });
 
-  const subtotal = useMemo(() => cartItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0), [cartItems]);
+  const subtotal = useMemo(() => checkoutItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0), [checkoutItems]);
   const shipping = subtotal >= 150 || subtotal === 0 ? 0 : 12.95;
   const tax = subtotal * 0;
   const total = subtotal + shipping + tax;
@@ -57,7 +59,7 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
           phone: form.phone,
           shippingAddress: { firstName:form.firstName, lastName:form.lastName, company:form.company, address:form.address, apartment:form.apartment, city:form.city, state:form.state, zip:form.zip, country:form.country },
           paymentMethod: 'manual',
-          items: cartItems.map((item) => ({ product: item.productId, name: item.name, quantity:item.quantity, price:item.price, weight:item.weight || '' })),
+          items: checkoutItems.map((item) => ({ product: item.productId, name: item.name, quantity:item.quantity, price:item.price, weight:item.weight || '' })),
           total,
         }),
       });
@@ -70,7 +72,8 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
         setChatPersistenceWarning('This conversation may not be available if you leave or refresh this page.');
       }
       setComplete(orderChat);
-      setCartItems([]); setCart(0);
+      if (isDirectCheckout) setDirectItems(null);
+      else { setCartItems([]); setCart(0); }
       setStage('complete');
     } catch (err) { setError(err.message); }
     finally { setSubmitting(false); }
@@ -92,9 +95,9 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
         <div className="checkout-section"><div className="checkout-heading"><span>1</span><h2>Contact information</h2></div><label>Email address<input required type="email" value={form.email} onChange={(e)=>update('email',e.target.value)} placeholder="you@example.com" /></label><label><input type="checkbox" checked={form.saveAddress} onChange={(e)=>update('saveAddress',e.target.checked)} /> Keep me updated about my order</label></div>
         <div className="checkout-section"><div className="checkout-heading"><span>2</span><h2>Shipping address</h2></div><div className="checkout-grid"><label>First name<input required value={form.firstName} onChange={(e)=>update('firstName',e.target.value)} /></label><label>Last name<input required value={form.lastName} onChange={(e)=>update('lastName',e.target.value)} /></label></div><label>Company (optional)<input value={form.company} onChange={(e)=>update('company',e.target.value)} /></label><label>Street address<input required value={form.address} onChange={(e)=>update('address',e.target.value)} placeholder="Street address" /></label><label>Apartment, suite, etc. (optional)<input value={form.apartment} onChange={(e)=>update('apartment',e.target.value)} /></label><div className="checkout-grid three"><label>City<input required value={form.city} onChange={(e)=>update('city',e.target.value)} /></label><label>State<input required value={form.state} onChange={(e)=>update('state',e.target.value)} /></label><label>ZIP code<input required value={form.zip} onChange={(e)=>update('zip',e.target.value)} /></label></div><div className="checkout-grid"><label>Country<select value={form.country} onChange={(e)=>update('country',e.target.value)}><option>United States</option><option>Canada</option></select></label><label>Phone number<input required type="tel" value={form.phone} onChange={(e)=>update('phone',e.target.value)} /></label></div></div>
         <div className="checkout-section"><div className="checkout-heading"><span>3</span><h2>Payment arrangement</h2></div><div className="checkout-payment-note"><ShieldCheck/><p><b>Payment is arranged after order confirmation.</b><br/>Our team will contact you using the details above to confirm your order and arrange payment.</p></div></div>
-        <button className="place-order-button" type="submit" disabled={submitting || !cartItems.length}>{submitting?'PLACING ORDER...':'PLACE ORDER'}</button>
+        <button className="place-order-button" type="submit" disabled={submitting || !checkoutItems.length}>{submitting?'PLACING ORDER...':'PLACE ORDER'}</button>
       </section>
-      <aside className="checkout-summary"><h2>Order summary</h2>{cartItems.map((item,index)=><div className="summary-item" key={`${item.productId}-${index}`}><div className="summary-thumb"><ShoppingCart /></div><div><b>{item.name}</b>{item.weight&&<small>{item.weight} lb</small>}<small>Qty {item.quantity}</small></div><strong>{money(item.price*item.quantity)}</strong></div>)}<div className="summary-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="summary-row"><span>Shipping</span><b>{shipping ? money(shipping) : 'FREE'}</b></div><div className="summary-row total"><span>Total</span><b>{money(total)}</b></div><div className="summary-trust"><span><Truck/> Free shipping</span><span><ShieldCheck/> Secure checkout</span></div></aside>
+      <aside className="checkout-summary"><h2>Order summary</h2>{checkoutItems.map((item,index)=><div className="summary-item" key={`${item.productId}-${index}`}><div className="summary-thumb"><ShoppingCart /></div><div><b>{item.name}</b>{item.weight&&<small>{item.weight} lb</small>}<small>Qty {item.quantity}</small></div><strong>{money(item.price*item.quantity)}</strong></div>)}<div className="summary-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="summary-row"><span>Shipping</span><b>{shipping ? money(shipping) : 'FREE'}</b></div><div className="summary-row total"><span>Total</span><b>{money(total)}</b></div><div className="summary-trust"><span><Truck/> Free shipping</span><span><ShieldCheck/> Secure checkout</span></div></aside>
     </form></main>;
   }
 
