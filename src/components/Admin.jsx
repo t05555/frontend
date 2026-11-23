@@ -72,10 +72,12 @@ function LegacyProductForm({ product, brands, categories, token, onSaved, onClos
 function ProductForm({ product, brands, categories, token, onSaved, onClose }) {
   const [data, setData] = useState(product ? {
     ...product,
+    compareAtPrice: product.compareAtPrice ?? '',
+    sale: !!product.sale,
     brand: product.brand?._id || product.brand || '',
     category: product.category?._id || product.category || '',
     subcategory: product.subcategory?._id || product.subcategory || '',
-  } : { name:'', description:'', price:'', sku:'', stock:0, brand:'', category:'', subcategory:'', weightOptions:'', published:false, featured:false, newArrival:false, newArrivalUntil:'', bestSeller:false, availability:'in_stock', displayOrder:0 });
+  } : { name:'', description:'', price:'', compareAtPrice:'', sku:'', stock:0, brand:'', category:'', subcategory:'', weightOptions:'', published:false, featured:false, newArrival:false, newArrivalUntil:'', bestSeller:false, sale:false, availability:'in_stock', displayOrder:0 });
   const [existingImages, setExistingImages] = useState((product?.images?.length ? product.images : product?.imageUrl ? [{url:product.imageUrl,key:product.imageKey,position:0}] : []).sort((a,b)=>(a.position||0)-(b.position||0)));
   const [newFiles, setNewFiles] = useState([]);
   const [error, setError] = useState('');
@@ -100,6 +102,7 @@ function ProductForm({ product, brands, categories, token, onSaved, onClose }) {
     Object.entries(data).forEach(([key,value])=>{
       if(['images','_id','createdAt','updatedAt','__v','brandName','categoryName','subcategoryName','imageUrl','imageKey'].includes(key)) return;
       if(key==='newArrivalUntil' && !value) return;
+      if(key==='compareAtPrice') { body.append('compareAtPrice', value === '' || value === null || value === undefined ? '' : value); return; }
       if(value!==null && value!==undefined && typeof value !== 'object') body.append(key,value);
     });
     body.append('existingImages',JSON.stringify(existingImages.map((image,index)=>({...image,position:index}))));
@@ -120,7 +123,8 @@ function ProductForm({ product, brands, categories, token, onSaved, onClose }) {
             <label>Product name<input required value={data.name || ''} onChange={(event) => set('name', event.target.value)} /></label>
             <label>Description<textarea rows="5" value={data.description || ''} onChange={(event) => set('description', event.target.value)} /></label>
             <div className="form-grid">
-              <label>Price<input required type="number" min="0" step="0.01" value={data.price || ''} onChange={(event) => set('price', event.target.value)} /></label>
+              <label>Main price (regular, struck through)<input type="number" min="0" step="0.01" placeholder="e.g. 249.99" value={data.compareAtPrice ?? ''} onChange={(event) => set('compareAtPrice', event.target.value)} /></label>
+              <label>Promo/new price (current selling price)<input required type="number" min="0" step="0.01" value={data.price || ''} onChange={(event) => set('price', event.target.value)} /></label>
               <label>SKU<input value={data.sku || ''} onChange={(event) => set('sku', event.target.value)} /></label>
               <label>Stock<input type="number" min="0" value={data.stock ?? 0} onChange={(event) => set('stock', event.target.value)} /></label>
               <label>Weights<input placeholder="12, 13, 14, 15" value={Array.isArray(data.weightOptions) ? data.weightOptions.join(',') : (data.weightOptions || '')} onChange={(event) => set('weightOptions', event.target.value)} /></label>
@@ -140,6 +144,7 @@ function ProductForm({ product, brands, categories, token, onSaved, onClose }) {
               <label><input type="checkbox" checked={!!data.featured} onChange={(event) => set('featured', event.target.checked)} /> Featured</label>
               <label><input type="checkbox" checked={!!data.newArrival} onChange={(event) => set('newArrival', event.target.checked)} /> New arrival</label>
               <label><input type="checkbox" checked={!!data.bestSeller} onChange={(event) => set('bestSeller', event.target.checked)} /> Best seller</label>
+              <label><input type="checkbox" checked={!!data.sale} onChange={(event) => set('sale', event.target.checked)} /> Promo active (show struck-through main price)</label>
             </div>
             <label className="upload-box"><Upload /><span>Upload multiple product images</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={chooseFiles} /></label>
             <div className="image-previews">
@@ -280,7 +285,7 @@ export default function Admin() {
   {active === 'Dashboard Overview' && <AnalyticsPanel stats={stats} systemStatus={systemStatus} />}
 
   {['All Products','Bowling Balls','Bowling Shoes','Bowling Bags','Accessories','New Arrivals','Inventory'].includes(active) && <><div className="table-toolbar"><div className="table-search"><Search /><input placeholder="Search products" value={search} onChange={(e) => setSearch(e.target.value)} /></div>{active === 'All Products' && <><select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">All status</option><option value="published">Published</option><option value="draft">Draft</option></select><select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)}><option value="all">All brands</option>{brands.map((brand) => <option key={brand._id} value={brand.name}>{brand.name}</option>)}</select><select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="all">All categories</option>{categories.map((category) => <option key={category._id} value={category.name}>{category.name}</option>)}</select><select value={availabilityFilter} onChange={(e) => setAvailabilityFilter(e.target.value)}><option value="all">All availability</option><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option><option value="preorder">Preorder</option></select></>}
-  <button className="primary-button" onClick={() => { setEditing(null); setFormOpen(true); }}><Plus /> ADD PRODUCT</button></div><div className="admin-table"><table><thead><tr><th>Product</th><th>Brand</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filtered.map((product) => <tr key={product._id}><td><div className="product-table-name">{product.imageUrl || product.images?.[0]?.url ? <img src={product.imageUrl || product.images[0].url} alt="" /> : <div className="image-fallback" />}<div><strong>{product.name}</strong><small>{product.sku || 'No SKU'}</small></div></div></td><td>{product.brandName || '—'}</td><td>{product.subcategoryName || product.categoryName || '—'}</td><td>${Number(product.price).toFixed(2)}</td><td>{product.stock ?? 0}</td><td><button className={`status-pill ${product.published ? 'published' : ''}`} onClick={() => toggleStatus(product, 'published')}>{product.published ? 'Published' : 'Draft'}</button></td><td><div className="row-actions"><button title="Edit" onClick={() => { setEditing(product); setFormOpen(true); }}><Edit3 /></button><button title="Delete" onClick={() => deleteProduct(product)}><Trash2 /></button></div></td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty-state">No products match this view.</div>}</div></>}
+  <button className="primary-button" onClick={() => { setEditing(null); setFormOpen(true); }}><Plus /> ADD PRODUCT</button></div><div className="admin-table"><table><thead><tr><th>Product</th><th>Brand</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filtered.map((product) => <tr key={product._id}><td><div className="product-table-name">{product.imageUrl || product.images?.[0]?.url ? <img src={product.imageUrl || product.images[0].url} alt="" /> : <div className="image-fallback" />}<div><strong>{product.name}</strong><small>{product.sku || 'No SKU'}</small></div></div></td><td>{product.brandName || '—'}</td><td>{product.subcategoryName || product.categoryName || '—'}</td><td><div className="admin-price-cell"><strong>${Number(product.price).toFixed(2)}</strong>{product.sale && Number(product.compareAtPrice) > Number(product.price) && <del>${Number(product.compareAtPrice).toFixed(2)}</del>}</div></td><td>{product.stock ?? 0}</td><td><button className={`status-pill ${product.published ? 'published' : ''}`} onClick={() => toggleStatus(product, 'published')}>{product.published ? 'Published' : 'Draft'}</button></td><td><div className="row-actions"><button title="Edit" onClick={() => { setEditing(product); setFormOpen(true); }}><Edit3 /></button><button title="Delete" onClick={() => deleteProduct(product)}><Trash2 /></button></div></td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty-state">No products match this view.</div>}</div></>}
 
   {active === 'Brands' && <ManagementList title="Brands" items={brands} token={token} type="brands" onRefresh={load} />}
   {active === 'Categories' && <ManagementList title="Categories" items={categories} token={token} type="categories" onRefresh={load} />}

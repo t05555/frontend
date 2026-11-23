@@ -199,3 +199,10 @@
     flex: 1;
   }
 }
+
+.price-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.current-price { font-size: 13px; }
+.original-price { font-size: 12px; color: #d92d20; text-decoration: line-through; text-decoration-color: #d92d20; text-decoration-thickness: 2px; font-weight: 700; }
+.detail-price-row .current-price { font-size: 28px; line-height: 1; }
+.detail-price-row .original-price { font-size: 20px; }
+.promo-note { margin: 0 0 10px; color: #b42318; font-weight: 600; }
