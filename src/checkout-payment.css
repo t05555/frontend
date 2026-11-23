@@ -70,3 +70,15 @@
   .cart-item > strong { grid-column: 2; }
   .cart-thumb { width: 56px; height: 56px; }
 }
+
+.summary-shipping-note { margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: #666; }
+@media (min-width: 901px) {
+  .cart-layout { grid-template-columns: 360px minmax(0, 1fr); }
+  .cart-layout .cart-summary-block { order: 0; position: sticky; top: 20px; align-self: start; }
+  .cart-layout .cart-items { order: 1; }
+}
+@media (max-width: 900px) {
+  .cart-layout { display: flex; flex-direction: column; }
+  .cart-layout .cart-summary-block { order: 1; }
+  .cart-layout .cart-items { order: 2; }
+}
