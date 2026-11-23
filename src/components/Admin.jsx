@@ -304,20 +304,50 @@ function DollarIcon(){ return <span>$</span>; }
 
 function ManagementList({ title, items, token, type, onRefresh, categories }) {
   const [open,setOpen]=useState(false); const [editing,setEditing]=useState(null); const [file,setFile]=useState(null);
-  const [form,setForm]=useState({name:'',description:'',active:true,sortOrder:0,parent:''});
-  function openCreate(){setEditing(null);setFile(null);setForm({name:'',description:'',active:true,sortOrder:0,parent:''});setOpen(true);}
-  function openEdit(item){setEditing(item);setFile(null);setForm({name:item.name||'',description:item.description||'',active:item.active!==false,sortOrder:item.sortOrder||0,parent:item.parent?._id||item.parent||''});setOpen(true);}
+  const [form,setForm]=useState({name:'',description:'',active:true,sortOrder:0,parent:'',subcategories:''});
+  const isCategories = type === 'categories';
+  function childNames(item){ return items.filter((entry) => String(entry.parent?._id || entry.parent || '') === String(item._id)).map((entry) => entry.name); }
+  function openCreate(){setEditing(null);setFile(null);setForm({name:'',description:'',active:true,sortOrder:0,parent:'',subcategories:''});setOpen(true);}
+  function openEdit(item){
+    setEditing(item); setFile(null);
+    const existing = isCategories ? childNames(item).join(', ') : '';
+    setForm({name:item.name||'',description:item.description||'',active:item.active!==false,sortOrder:item.sortOrder||0,parent:item.parent?._id||item.parent||'',subcategories:existing});
+    setOpen(true);
+  }
   async function save(event){
     event.preventDefault();
     const body=new FormData();
-    Object.entries(form).forEach(([key,value])=>{if(value!==''&&value!==null)body.append(key,value);});
+    Object.entries(form).forEach(([key,value])=>{ if(key==='subcategories') return; if(value!==''&&value!==null)body.append(key,value); });
     if(file)body.append('image',file);
-    await api(`/api/admin/${type}${editing?`/${editing._id}`:''}`,{method:editing?'PUT':'POST',body},token);
+    const saved = await api(`/api/admin/${type}${editing?`/${editing._id}`:''}`,{method:editing?'PUT':'POST',body},token);
+    const parentId = saved?._id || editing?._id;
+    if (isCategories && !form.parent && parentId) {
+      const requested = String(form.subcategories || '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean);
+      const existing = new Set(items.filter((entry) => String(entry.parent?._id || entry.parent || '') === String(parentId)).map((entry) => entry.name.toLowerCase()));
+      for (const name of requested) {
+        if (existing.has(name.toLowerCase())) continue;
+        const subBody = new FormData();
+        subBody.append('name', name);
+        subBody.append('parent', parentId);
+        subBody.append('active', String(!!form.active));
+        await api('/api/admin/categories', { method: 'POST', body: subBody }, token);
+        existing.add(name.toLowerCase());
+      }
+    }
     setOpen(false);
     await onRefresh();
   }
-  async function remove(item){if(window.confirm(`Delete ${item.name}? Existing product assignments will remain on the product record.`)){await api(`/api/admin/${type}/${item._id}`,{method:'DELETE'},token);await onRefresh();}}
-  return <><div className="table-toolbar"><h2>{title}</h2><button className="primary-button" onClick={openCreate}><Plus/> ADD {title==='Brands'?'BRAND':'CATEGORY'}</button></div><div className="admin-table"><table><thead><tr><th>{title==='Brands'?'Brand':'Category'}</th><th>Status</th><th>Order</th><th>Actions</th></tr></thead><tbody>{items.map((item)=><tr key={item._id}><td><div className="product-table-name">{(item.logoUrl||item.imageUrl)&&<img src={item.logoUrl||item.imageUrl} alt=""/>}<strong>{item.name}</strong></div></td><td><button className={`status-pill ${item.active?'published':''}`} onClick={async()=>{await api(`/api/admin/${type}/${item._id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:!item.active})},token);await onRefresh();}}>{item.active?'Active':'Inactive'}</button></td><td>{item.sortOrder||0}</td><td><div className="row-actions"><button title="Edit" onClick={()=>openEdit(item)}><Edit3/></button><button title="Delete" onClick={()=>remove(item)}><Trash2/></button></div></td></tr>)}</tbody></table>{items.length===0&&<div className="empty-state">No {title.toLowerCase()} created yet</div>}</div>{open&&<div className="modal-backdrop"><form className="simple-modal" onSubmit={save}><div className="modal-head"><h2>{editing?'Edit':'Add'} {title==='Brands'?'brand':'category'}</h2><button type="button" onClick={()=>setOpen(false)}><X/></button></div><label>Name<input required value={form.name} onChange={(e)=>setForm({...form,name:e.target.value})}/></label><label>Description<textarea value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})}/></label>{type==='categories'&&<label>Parent category<select value={form.parent} onChange={(e)=>setForm({...form,parent:e.target.value})}><option value="">Top level</option>{items.filter((item)=>item._id!==editing?._id).map((item)=><option key={item._id} value={item._id}>{item.name}</option>)}</select></label>}<label>Sort order<input type="number" value={form.sortOrder} onChange={(e)=>setForm({...form,sortOrder:e.target.value})}/></label><label className="upload-box"><Upload/><span>Upload {title==='Brands'?'logo':'image'} (optional)</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e)=>setFile(e.target.files[0]||null)}/></label><div className="toggle-grid"><label><input type="checkbox" checked={form.active} onChange={(e)=>setForm({...form,active:e.target.checked})}/> Active</label></div><div className="modal-actions"><button type="button" onClick={()=>setOpen(false)}>CANCEL</button><button type="submit">SAVE</button></div></form></div>}</>;
+  async function remove(item){
+    if (!window.confirm(`Delete ${item.name}? Existing product assignments will remain on the product record.`)) return;
+    if (isCategories && !item.parent) {
+      const children = items.filter((entry) => String(entry.parent?._id || entry.parent || '') === String(item._id));
+      for (const child of children) await api(`/api/admin/categories/${child._id}`, { method: 'DELETE' }, token);
+    }
+    await api(`/api/admin/${type}/${item._id}`,{method:'DELETE'},token);
+    await onRefresh();
+  }
+  const parentName = (item) => item.parent?.name || items.find((entry) => String(entry._id) === String(item.parent || ''))?.name || '';
+  return <><div className="table-toolbar"><h2>{title}</h2><button className="primary-button" onClick={openCreate}><Plus/> ADD {title==='Brands'?'BRAND':'CATEGORY'}</button></div><div className="admin-table"><table><thead><tr><th>{title==='Brands'?'Brand':'Category'}</th>{isCategories && <th>Subcategories</th>}<th>Status</th><th>Order</th><th>Actions</th></tr></thead><tbody>{items.map((item)=><tr key={item._id}><td><div className="product-table-name">{(item.logoUrl||item.imageUrl)&&<img src={item.logoUrl||item.imageUrl} alt=""/>}<div><strong>{item.name}</strong>{isCategories && parentName(item) && <small>Parent: {parentName(item)}</small>}</div></div></td>{isCategories && <td>{childNames(item).join(', ') || (item.parent ? '—' : 'No subcategories yet')}</td>}<td><button className={`status-pill ${item.active?'published':''}`} onClick={async()=>{await api(`/api/admin/${type}/${item._id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:!item.active})},token);await onRefresh();}}>{item.active?'Active':'Inactive'}</button></td><td>{item.sortOrder||0}</td><td><div className="row-actions"><button title="Edit" onClick={()=>openEdit(item)}><Edit3/></button><button title="Delete" onClick={()=>remove(item)}><Trash2/></button></div></td></tr>)}</tbody></table>{items.length===0&&<div className="empty-state">No {title.toLowerCase()} created yet</div>}</div>{open&&<div className="modal-backdrop"><form className="simple-modal" onSubmit={save}><div className="modal-head"><h2>{editing?'Edit':'Add'} {title==='Brands'?'brand':'category'}</h2><button type="button" onClick={()=>setOpen(false)}><X/></button></div><label>Name<input required value={form.name} onChange={(e)=>setForm({...form,name:e.target.value})}/></label><label>Description<textarea value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})}/></label>{isCategories&&<label>Parent category<select value={form.parent} onChange={(e)=>setForm({...form,parent:e.target.value, subcategories: e.target.value ? '' : form.subcategories})}><option value="">Top level</option>{items.filter((item)=>item._id!==editing?._id && !item.parent).map((item)=><option key={item._id} value={item._id}>{item.name}</option>)}</select></label>}{isCategories && !form.parent && <label>Subcategories<textarea rows="3" placeholder="Enter subcategories separated by commas or new lines (e.g. Bowling Shoes, Bowling Bags)" value={form.subcategories} onChange={(e)=>setForm({...form,subcategories:e.target.value})}/><small>Each top-level category can have its own subcategories. Existing subcategories are kept; add more here as needed.</small></label>}<label>Sort order<input type="number" value={form.sortOrder} onChange={(e)=>setForm({...form,sortOrder:e.target.value})}/></label><label className="upload-box"><Upload/><span>Upload {title==='Brands'?'logo':'image'} (optional)</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e)=>setFile(e.target.files[0]||null)}/></label><div className="toggle-grid"><label><input type="checkbox" checked={form.active} onChange={(e)=>setForm({...form,active:e.target.checked})}/> Active</label></div><div className="modal-actions"><button type="button" onClick={()=>setOpen(false)}>CANCEL</button><button type="submit">SAVE</button></div></form></div>}</>;
 }
 
 function LegacyHomepageManager({ active, token }) {
