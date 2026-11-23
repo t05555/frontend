@@ -32,3 +32,41 @@
   max-width: 260px;
   overflow-wrap: anywhere;
 }
+
+/* Mobile-first checkout details layout: vertical form with summary after contact */
+.checkout-details-layout { align-items: start; }
+.checkout-details-layout .checkout-error-block { grid-column: 1 / -1; }
+.checkout-details-layout .checkout-form-block { min-width: 0; }
+.checkout-details-layout .checkout-form-block .checkout-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+@media (min-width: 901px) {
+  .checkout-details-layout { grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas:
+    "error error"
+    "contact summary"
+    "shipping summary"
+    "payment summary"; }
+  .checkout-details-layout .checkout-error-block { grid-area: error; }
+  .checkout-details-layout .checkout-contact-block { grid-area: contact; }
+  .checkout-details-layout .checkout-summary { grid-area: summary; position: sticky; top: 20px; }
+  .checkout-details-layout .checkout-shipping-block { grid-area: shipping; }
+  .checkout-details-layout .checkout-payment-block { grid-area: payment; }
+}
+@media (max-width: 900px) {
+  .checkout-layout,
+  .checkout-layout.cart-layout { grid-template-columns: 1fr; padding: 20px 12px; gap: 16px; }
+  .checkout-details-layout { display: flex; flex-direction: column; }
+  .checkout-details-layout .checkout-contact-block { order: 1; }
+  .checkout-details-layout .checkout-summary { order: 2; position: static; }
+  .checkout-details-layout .checkout-shipping-block { order: 3; }
+  .checkout-details-layout .checkout-payment-block { order: 4; }
+  .checkout-details-layout .checkout-error-block { order: 0; }
+  .checkout-form,
+  .cart-items,
+  .checkout-summary { padding: 16px; }
+  .checkout-grid,
+  .checkout-grid.three { grid-template-columns: 1fr; }
+  .checkout-steps { gap: 10px; padding: 0 10px; height: auto; min-height: 64px; flex-wrap: wrap; }
+  .checkout-steps > div span { font-size: 11px; }
+  .cart-item { grid-template-columns: 56px 1fr; }
+  .cart-item > strong { grid-column: 2; }
+  .cart-thumb { width: 56px; height: 56px; }
+}
