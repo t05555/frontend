@@ -1,0 +1,140 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { MessageCircle, Send, X } from 'lucide-react';
+import { apiUrl } from '../api.js';
+
+function messageTime(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+export default function OrderChat({ order, conversationToken, adminToken, onClose }) {
+  const isAdmin = Boolean(adminToken);
+  const authToken = adminToken || conversationToken;
+  const endpoint = isAdmin
+    ? `/api/admin/orders/${order._id}/messages`
+    : `/api/orders/${order._id}/messages`;
+  const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const messagesEnd = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    let requestPending = false;
+
+    async function refreshMessages() {
+      if (requestPending || !authToken) return;
+      requestPending = true;
+      try {
+        const response = await fetch(apiUrl(endpoint), {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Unable to load order messages');
+        if (active) {
+          const nextMessages = data.messages || [];
+          setMessages((current) => current.length === nextMessages.length && current.every((item, index) => (
+            item._id === nextMessages[index]._id &&
+            item.text === nextMessages[index].text &&
+            item.sender === nextMessages[index].sender
+          )) ? current : nextMessages);
+          setError('');
+        }
+      } catch (requestError) {
+        if (active) setError(requestError.message);
+      } finally {
+        requestPending = false;
+        if (active) setLoading(false);
+      }
+    }
+
+    refreshMessages();
+    const interval = window.setInterval(refreshMessages, 4000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [authToken, endpoint]);
+
+  useEffect(() => {
+    messagesEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages]);
+
+  async function sendMessage(event) {
+    event.preventDefault();
+    const text = message.trim();
+    if (!text || sending) return;
+
+    setSending(true);
+    setError('');
+    try {
+      const response = await fetch(apiUrl(endpoint), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ message: text }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Unable to send message');
+      setMessages(data.messages || []);
+      setMessage('');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <section className={`order-chat ${isAdmin ? 'order-chat-admin' : 'order-chat-customer'}`} aria-label="Order conversation">
+      <header className="order-chat-header">
+        <div className="order-chat-title">
+          <span className="order-chat-icon"><MessageCircle aria-hidden="true" /></span>
+          <div>
+            <h2>{isAdmin ? `Order #${String(order._id).slice(-8).toUpperCase()}` : 'Order chat'}</h2>
+            <p>{isAdmin ? `${order.customer} · ${order.status}` : 'BowlersX Support · replies update automatically'}</p>
+          </div>
+        </div>
+        {onClose && <button className="order-chat-close" type="button" aria-label="Close conversation" onClick={onClose}><X /></button>}
+      </header>
+
+      <div className="order-chat-messages" role="log" aria-live="polite" aria-label="Messages">
+        {loading && messages.length === 0 && <p className="order-chat-empty">Loading conversation…</p>}
+        {!loading && messages.length === 0 && <p className="order-chat-empty">Ask BowlersX Support a question about this order.</p>}
+        {messages.map((item, index) => {
+          const ownMessage = isAdmin ? item.sender === 'admin' : item.sender === 'customer';
+          const author = ownMessage ? 'You' : isAdmin ? 'Customer' : 'BowlersX Support';
+          return (
+            <article className={`order-chat-message ${ownMessage ? 'is-own' : ''}`} key={item._id || `${item.createdAt}-${index}`}>
+              <span>{author}</span>
+              <p>{item.text}</p>
+              <time dateTime={item.createdAt}>{messageTime(item.createdAt)}</time>
+            </article>
+          );
+        })}
+        <div ref={messagesEnd} />
+      </div>
+
+      {error && <p className="order-chat-error" role="alert">{error}</p>}
+      <form className="order-chat-compose" onSubmit={sendMessage}>
+        <label className="visually-hidden" htmlFor={`order-message-${order._id}`}>Message</label>
+        <textarea
+          id={`order-message-${order._id}`}
+          value={message}
+          maxLength={1000}
+          rows={2}
+          placeholder="Write a message…"
+          onChange={(event) => setMessage(event.target.value)}
+        />
+        <button type="submit" disabled={!message.trim() || sending || !authToken}>
+          <Send aria-hidden="true" />
+          <span>{sending ? 'Sending…' : 'Send'}</span>
+        </button>
+      </form>
+    </section>
+  );
+}

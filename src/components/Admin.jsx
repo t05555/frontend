@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { LayoutDashboard, Boxes, CircleDot, Package, Tag, Layers, ShoppingBag, Users, Warehouse, House, Settings, Search, Plus, Edit3, Trash2, LogOut, X, Upload } from 'lucide-react';
+import { LayoutDashboard, Boxes, CircleDot, Package, Tag, Layers, ShoppingBag, Users, Warehouse, House, Settings, Search, Plus, Edit3, Trash2, LogOut, X, Upload, MessageCircle } from 'lucide-react';
 import SiteLogo from './SiteLogo.jsx';
+import OrderChat from './OrderChat.jsx';
 import { apiUrl } from '../api.js';
 
 const sections = [
@@ -74,7 +75,7 @@ function ProductForm({ product, brands, categories, token, onSaved, onClose }) {
     brand: product.brand?._id || product.brand || '',
     category: product.category?._id || product.category || '',
     subcategory: product.subcategory?._id || product.subcategory || '',
-  } : { name:'', description:'', price:'', sku:'', stock:0, brand:'', category:'', subcategory:'', weightOptions:'', weightPrices:'', published:false, featured:false, newArrival:false, newArrivalUntil:'', bestSeller:false, availability:'in_stock', displayOrder:0 });
+  } : { name:'', description:'', price:'', sku:'', stock:0, brand:'', category:'', subcategory:'', weightOptions:'', published:false, featured:false, newArrival:false, newArrivalUntil:'', bestSeller:false, availability:'in_stock', displayOrder:0 });
   const [existingImages, setExistingImages] = useState((product?.images?.length ? product.images : product?.imageUrl ? [{url:product.imageUrl,key:product.imageKey,position:0}] : []).sort((a,b)=>(a.position||0)-(b.position||0)));
   const [newFiles, setNewFiles] = useState([]);
   const [error, setError] = useState('');
@@ -103,17 +104,55 @@ function ProductForm({ product, brands, categories, token, onSaved, onClose }) {
     });
     body.append('existingImages',JSON.stringify(existingImages.map((image,index)=>({...image,position:index}))));
     newFiles.forEach((file)=>body.append('images',file));
-    if (data.weightPrices) {
-      const weightPricesValue = Array.isArray(data.weightPrices)
-        ? data.weightPrices.map((item) => `${item.weight}:${item.price}`).join(',')
-        : data.weightPrices;
-      body.append('weightPrices', weightPricesValue);
-    }
     try { await api(product ? `/api/admin/products/${product._id}` : '/api/admin/products',{method:product?'PUT':'POST',body},token); onSaved(); }
     catch(err){setError(err.message);} finally {setSaving(false);}
   }
 
-  return <div className="modal-backdrop"><form className="product-modal" onSubmit={submit}><div className="modal-head"><div><span>{product?'EDIT PRODUCT':'NEW PRODUCT'}</span><h2>{product?.name || 'Add product'}</h2></div><button type="button" onClick={onClose}><X/></button></div><div className="modal-body"><div className="form-column"><label>Product name<input required value={data.name||''} onChange={(e)=>set('name',e.target.value)}/></label><label>Description<textarea rows="5" value={data.description||''} onChange={(e)=>set('description',e.target.value)}/></label><div className="form-grid"><label>Price<input required type="number" min="0" step="0.01" value={data.price||''} onChange={(e)=>set('price',e.target.value)}/></label><label>SKU<input value={data.sku||''} onChange={(e)=>set('sku',e.target.value)}/></label><label>Stock<input type="number" min="0" value={data.stock??0} onChange={(e)=>set('stock',e.target.value)}/></label><label>Weights<input placeholder="12, 13, 14, 15" value={Array.isArray(data.weightOptions)?data.weightOptions.join(','):(data.weightOptions||'')} onChange={(e)=>set('weightOptions',e.target.value)}/></label><label>Weight prices<input placeholder="12:169.95, 14:179.95, 16:189.95" value={Array.isArray(data.weightPrices)?data.weightPrices.map((item)=>`${item.weight}:${item.price}`).join(','):(data.weightPrices||'')} onChange={(e)=>set('weightPrices',e.target.value)}/></label><label>Display order<input type="number" value={data.displayOrder||0} onChange={(e)=>set('displayOrder',e.target.value)}/></label><label>New arrival until<input type="datetime-local" value={data.newArrivalUntil ? String(data.newArrivalUntil).slice(0,16) : ''} onChange={(e)=>set('newArrivalUntil',e.target.value)}/></label></div></div><div className="form-column"><div className="form-grid">  <label>Brand<select value={data.brand||''} onChange={(e)=>set('brand',e.target.value)}><option value="">Select brand</option>{brands.map((brand)=><option key={brand._id} value={brand._id}>{brand.name}</option>)}</select></label>  <label>Main category<select value={data.category||''} onChange={(e)=>set('category',e.target.value)}><option value="">Select category</option>{categories.filter((category)=>!category.parent).map((category)=><option key={category._id} value={category._id}>{category.name}</option>)}</select></label>  <label>Subcategory<select value={data.subcategory||''} onChange={(e)=>set('subcategory',e.target.value)}><option value="">Select subcategory</option>{categories.filter((category)=>category.parent).map((category)=><option key={category._id} value={category._id}>{category.name}</option>)}</select></label><label>Availability<select value={data.availability||'in_stock'} onChange={(e)=>set('availability',e.target.value)}><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option><option value="preorder">Preorder</option></select></label></div><div className="toggle-grid"><label><input type="checkbox" checked={!!data.published} onChange={(e)=>set('published',e.target.checked)}/> Published</label><label><input type="checkbox" checked={!!data.featured} onChange={(e)=>set('featured',e.target.checked)}/> Featured</label><label><input type="checkbox" checked={!!data.newArrival} onChange={(e)=>set('newArrival',e.target.checked)}/> New arrival</label><label><input type="checkbox" checked={!!data.bestSeller} onChange={(e)=>set('bestSeller',e.target.checked)}/> Best seller</label></div><label className="upload-box"><Upload/><span>Upload multiple product images</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={chooseFiles}/></label><div className="image-previews">{existingImages.map((image,index)=><div key={image.key||image.url}><img src={image.url} alt="Product preview"/><button type="button" onClick={()=>setExistingImages((current)=>current.filter((_,itemIndex)=>itemIndex!==index))}>×</button><button type="button" className="move-left" onClick={()=>moveImage(index,-1)}>‹</button><button type="button" className="move-right" onClick={()=>moveImage(index,1)}>›</button>{index===0&&<span>COVER</span>}</div>)}{newFiles.map((file,index)=><div key={`${file.name}-${index}`}><img src={URL.createObjectURL(file)} alt="New product preview"/><button type="button" onClick={()=>setNewFiles((current)=>current.filter((_,itemIndex)=>itemIndex!==index))}>×</button>{existingImages.length===0&&index===0&&<span>COVER</span>}</div>)}</div></div></div>{error&&<div className="form-error modal-error">{error}</div>}<div className="modal-actions"><button type="button" onClick={onClose}>CANCEL</button><button type="submit" disabled={saving}>{saving?'SAVING...':'SAVE PRODUCT'}</button></div></form></div>;
+  return (
+    <div className="modal-backdrop">
+      <form className="product-modal" onSubmit={submit}>
+        <div className="modal-head">
+          <div><span>{product ? 'EDIT PRODUCT' : 'NEW PRODUCT'}</span><h2>{product?.name || 'Add product'}</h2></div>
+          <button type="button" onClick={onClose}><X /></button>
+        </div>
+        <div className="modal-body">
+          <div className="form-column">
+            <label>Product name<input required value={data.name || ''} onChange={(event) => set('name', event.target.value)} /></label>
+            <label>Description<textarea rows="5" value={data.description || ''} onChange={(event) => set('description', event.target.value)} /></label>
+            <div className="form-grid">
+              <label>Price<input required type="number" min="0" step="0.01" value={data.price || ''} onChange={(event) => set('price', event.target.value)} /></label>
+              <label>SKU<input value={data.sku || ''} onChange={(event) => set('sku', event.target.value)} /></label>
+              <label>Stock<input type="number" min="0" value={data.stock ?? 0} onChange={(event) => set('stock', event.target.value)} /></label>
+              <label>Weights<input placeholder="12, 13, 14, 15" value={Array.isArray(data.weightOptions) ? data.weightOptions.join(',') : (data.weightOptions || '')} onChange={(event) => set('weightOptions', event.target.value)} /></label>
+              <label>Display order<input type="number" value={data.displayOrder || 0} onChange={(event) => set('displayOrder', event.target.value)} /></label>
+              <label>New arrival until<input type="datetime-local" value={data.newArrivalUntil ? String(data.newArrivalUntil).slice(0, 16) : ''} onChange={(event) => set('newArrivalUntil', event.target.value)} /></label>
+            </div>
+          </div>
+          <div className="form-column">
+            <div className="form-grid">
+              <label>Brand<select value={data.brand || ''} onChange={(event) => set('brand', event.target.value)}><option value="">Select brand</option>{brands.map((brand) => <option key={brand._id} value={brand._id}>{brand.name}</option>)}</select></label>
+              <label>Main category<select value={data.category || ''} onChange={(event) => set('category', event.target.value)}><option value="">Select category</option>{categories.filter((category) => !category.parent).map((category) => <option key={category._id} value={category._id}>{category.name}</option>)}</select></label>
+              <label>Subcategory<select value={data.subcategory || ''} onChange={(event) => set('subcategory', event.target.value)}><option value="">Select subcategory</option>{categories.filter((category) => category.parent).map((category) => <option key={category._id} value={category._id}>{category.name}</option>)}</select></label>
+              <label>Availability<select value={data.availability || 'in_stock'} onChange={(event) => set('availability', event.target.value)}><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option><option value="preorder">Preorder</option></select></label>
+            </div>
+            <div className="toggle-grid">
+              <label><input type="checkbox" checked={!!data.published} onChange={(event) => set('published', event.target.checked)} /> Published</label>
+              <label><input type="checkbox" checked={!!data.featured} onChange={(event) => set('featured', event.target.checked)} /> Featured</label>
+              <label><input type="checkbox" checked={!!data.newArrival} onChange={(event) => set('newArrival', event.target.checked)} /> New arrival</label>
+              <label><input type="checkbox" checked={!!data.bestSeller} onChange={(event) => set('bestSeller', event.target.checked)} /> Best seller</label>
+            </div>
+            <label className="upload-box"><Upload /><span>Upload multiple product images</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={chooseFiles} /></label>
+            <div className="image-previews">
+              {existingImages.map((image, index) => <div key={image.key || image.url}><img src={image.url} alt="Product preview" /><button type="button" onClick={() => setExistingImages((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button><button type="button" className="move-left" onClick={() => moveImage(index, -1)}>‹</button><button type="button" className="move-right" onClick={() => moveImage(index, 1)}>›</button>{index === 0 && <span>COVER</span>}</div>)}
+              {newFiles.map((file, index) => <div key={`${file.name}-${index}`}><img src={URL.createObjectURL(file)} alt="New product preview" /><button type="button" onClick={() => setNewFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button>{existingImages.length === 0 && index === 0 && <span>COVER</span>}</div>)}
+            </div>
+          </div>
+        </div>
+        {error && <div className="form-error modal-error">{error}</div>}
+        <div className="modal-actions"><button type="button" onClick={onClose}>CANCEL</button><button type="submit" disabled={saving}>{saving ? 'SAVING...' : 'SAVE PRODUCT'}</button></div>
+      </form>
+    </div>
+  );
 }
 
 export default function Admin() {
@@ -124,6 +163,8 @@ export default function Admin() {
   const [brands, setBrands] = useState([]);
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [ordersError, setOrdersError] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
@@ -149,6 +190,32 @@ export default function Admin() {
     } catch { sessionStorage.removeItem('bowlerx-admin-token'); setToken(''); }
   }
   useEffect(() => { load(); }, [token]);
+  useEffect(() => {
+    if (!token) return undefined;
+    let active = true;
+    let requestPending = false;
+    const refreshOrders = async () => {
+      if (requestPending) return;
+      requestPending = true;
+      try {
+        const latestOrders = await api('/api/admin/orders', {}, token);
+        if (active) {
+          setOrders(latestOrders);
+          setStats((current) => ({ ...current, orderCount: latestOrders.length }));
+          setOrdersError('');
+        }
+      } catch (error) {
+        if (active) setOrdersError(error.message);
+      } finally {
+        requestPending = false;
+      }
+    };
+    const interval = window.setInterval(refreshOrders, 8000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [token]);
   function login(nextToken) { sessionStorage.setItem('bowlerx-admin-token', nextToken); setToken(nextToken); }
   function logout() { sessionStorage.removeItem('bowlerx-admin-token'); setToken(''); }
 
@@ -217,12 +284,13 @@ export default function Admin() {
 
   {active === 'Brands' && <ManagementList title="Brands" items={brands} token={token} type="brands" onRefresh={load} />}
   {active === 'Categories' && <ManagementList title="Categories" items={categories} token={token} type="categories" onRefresh={load} />}
-  {active === 'Orders' && <div className="admin-table"><table><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th></tr></thead><tbody>{orders.map((order) => <tr key={order._id}><td>#{order._id.slice(-6)}</td><td>{order.customer}</td><td>${Number(order.total).toFixed(2)}</td><td><select defaultValue={order.status} onChange={async (e) => { await api(`/api/admin/orders/${order._id}/status`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ status:e.target.value }) }, token); await load(); }}><option>Processing</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option></select></td><td>{new Date(order.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table>{orders.length === 0 && <div className="empty-state">No orders yet</div>}</div>}
+  {active === 'Orders' && <>{ordersError && <p className="order-chat-error" role="alert">Could not refresh orders: {ordersError}</p>}<div className="admin-table"><table><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th><th>Conversation</th><th>Date</th></tr></thead><tbody>{orders.map((order) => <tr key={order._id}><td>#{order._id.slice(-6)}</td><td>{order.customer}</td><td>${Number(order.total).toFixed(2)}</td><td><select value={order.status} onChange={async (e) => { await api(`/api/admin/orders/${order._id}/status`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ status:e.target.value }) }, token); await load(); }}><option>Processing</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option></select></td><td><button className="order-chat-action" type="button" onClick={() => setSelectedOrder(order)}><MessageCircle />{order.chatMessageCount ? `Chat (${order.chatMessageCount})` : 'Open chat'}</button>{order.latestMessage && <small className="order-list-message">{order.latestMessage.sender === 'customer' ? 'Customer' : 'Admin'}: {order.latestMessage.text}</small>}</td><td>{new Date(order.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table>{orders.length === 0 && <div className="empty-state">No orders yet</div>}</div></>}
   {active === 'Customers' && <div className="admin-table"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th></tr></thead><tbody>{customers.map((customer) => <tr key={customer._id}><td>{customer.name}</td><td>{customer.email}</td><td>{customer.phone || '—'}</td><td>{customer.active ? 'Active' : 'Inactive'}</td></tr>)}</tbody></table>{customers.length === 0 && <div className="empty-state">No customer records yet</div>}</div>}
   {active === 'Homepage Management' && <HomepageManager active={active} token={token} />}
   {active === 'Website Settings' && <WebsiteSettings token={token} />}
       </section>
       {formOpen && <ProductForm product={editing} brands={brands} categories={categories} token={token} onClose={() => setFormOpen(false)} onSaved={async () => { setFormOpen(false); await load(); }} />}
+      {selectedOrder && <div className="modal-backdrop order-chat-backdrop" role="presentation" onClick={() => setSelectedOrder(null)}><div role="dialog" aria-modal="true" aria-label="Order conversation" onClick={(event) => event.stopPropagation()}><OrderChat order={orders.find((order) => order._id === selectedOrder._id) || selectedOrder} adminToken={token} onClose={() => setSelectedOrder(null)} /></div></div>}
     </div>
   );
 }

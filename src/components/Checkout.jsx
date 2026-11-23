@@ -1,9 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronRight, ShoppingCart, Trash2, Truck, ShieldCheck, CreditCard, Lock } from 'lucide-react';
 import SiteLogo from './SiteLogo.jsx';
+import OrderChat from './OrderChat.jsx';
 import { apiUrl } from '../api.js';
 
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
+const orderChatStorageKey = 'bowlerx-active-order-chat';
+
+function restoreOrderChat() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(orderChatStorageKey) || 'null');
+    return saved?.order?._id ? saved : null;
+  } catch {
+    return null;
+  }
+}
 
 export function CheckoutSteps({ current }) {
   const steps = ['Shopping Cart', 'Checkout Details', 'Order Complete'];
@@ -11,10 +22,11 @@ export function CheckoutSteps({ current }) {
 }
 
 export default function Checkout({ cartItems, setCartItems, setCart }) {
-  const [stage, setStage] = useState(cartItems.length ? 'cart' : 'cart');
-  const [complete, setComplete] = useState(null);
+  const [complete, setComplete] = useState(restoreOrderChat);
+  const [stage, setStage] = useState(() => restoreOrderChat() ? 'complete' : 'cart');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [chatPersistenceWarning, setChatPersistenceWarning] = useState('');
   const [form, setForm] = useState({
     email:'', firstName:'', lastName:'', company:'', address:'', apartment:'', city:'', state:'', zip:'', country:'United States', phone:'', payment:'card', saveAddress:false,
   });
@@ -50,8 +62,14 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
         }),
       });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Unable to place order');
-      const order = await response.json();
-      setComplete(order);
+      const { chatToken = '', ...order } = await response.json();
+      const orderChat = { order, conversationToken: chatToken };
+      try {
+        sessionStorage.setItem(orderChatStorageKey, JSON.stringify(orderChat));
+      } catch {
+        setChatPersistenceWarning('This conversation may not be available if you leave or refresh this page.');
+      }
+      setComplete(orderChat);
       setCartItems([]); setCart(0);
       setStage('complete');
     } catch (err) { setError(err.message); }
@@ -59,7 +77,12 @@ export default function Checkout({ cartItems, setCartItems, setCart }) {
   }
 
   if (stage === 'complete' && complete) {
-    return <main className="checkout-page"><div className="checkout-brand"><button onClick={() => { location.hash = ''; }}><SiteLogo className="checkout-logo" /></button></div><CheckoutSteps current={2}/><div className="order-complete"><div className="complete-icon">✓</div><span>THANK YOU</span><h1>Order received</h1><p>Your order <b>#{String(complete._id).slice(-8).toUpperCase()}</b> has been placed.</p><p className="complete-email">A confirmation will be sent to <b>{form.email}</b>.</p><button onClick={() => { location.hash = ''; }}>CONTINUE SHOPPING</button></div></main>;
+    const orderNumber = `#${String(complete.order._id).slice(-8).toUpperCase()}`;
+    const leaveOrderChat = () => {
+      sessionStorage.removeItem(orderChatStorageKey);
+      location.hash = '';
+    };
+    return <main className="checkout-page"><div className="checkout-brand"><button onClick={leaveOrderChat}><SiteLogo className="checkout-logo" /></button></div><CheckoutSteps current={2}/><div className="order-complete"><div className="complete-icon">✓</div><span>THANK YOU</span><h1>Order received</h1><p>Your order <b>{orderNumber}</b> has been placed.</p><p className="complete-email">A confirmation will be sent to <b>{form.email || complete.order.email}</b>.</p>{chatPersistenceWarning && <p className="order-chat-unavailable">{chatPersistenceWarning}</p>}{complete.conversationToken ? <OrderChat order={complete.order} conversationToken={complete.conversationToken} /> : <p className="order-chat-unavailable">Your order is confirmed, but a secure chat session could not be started. Contact support with order number {orderNumber}.</p>}<button className="order-chat-return" onClick={leaveOrderChat}>CONTINUE SHOPPING</button></div></main>;
   }
 
   if (stage === 'details') {
