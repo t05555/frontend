@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import Storefront, { ProductCard, QuickBuyBar, ProductInfoModal, isBowlingBall, productWeightOptions } from './components/Storefront.jsx';
+import Storefront, { ProductCard, QuickBuyBar, ProductInfoModal, HelpPage, isBowlingBall, productWeightOptions } from './components/Storefront.jsx';
 import Admin from './components/Admin.jsx';
 import Checkout from './components/Checkout.jsx';
 import { apiUrl } from './api.js';
@@ -142,6 +142,7 @@ export default function App() {
   if (hash === '#admin') {
     return <Admin />;
   }
+  if (hash.startsWith('#help/')) return <HelpPage topic={hash.slice(6)} />;
   if (hash.startsWith('#product/')) return <ProductPage id={hash.slice(9)} setCart={setCart} quickBuySelection={quickBuySelection} onQuickBuyToggle={toggleQuickBuy} onQuickBuyWeightChange={updateQuickBuyWeight} onQuickBuy={startQuickBuy} onClearQuickBuy={() => setQuickBuySelection({})} />;
   if (hash.startsWith('#brand/') || hash.startsWith('#category/') || hash === '#new-arrivals') return <CollectionPage path={hash} setCart={setCart} quickBuySelection={quickBuySelection} onQuickBuyToggle={toggleQuickBuy} onQuickBuyWeightChange={updateQuickBuyWeight} onQuickBuy={startQuickBuy} onClearQuickBuy={() => setQuickBuySelection({})} />;
   if (hash === '#checkout' || hash === '#cart') return <Checkout cartItems={cartItems} setCartItems={setCartItems} setCart={setCart} directItems={directCheckoutItems} setDirectItems={setDirectCheckoutItems} />;

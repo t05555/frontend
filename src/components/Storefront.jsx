@@ -214,4 +214,108 @@ export default function Storefront({ setCart, cartCount, quickBuySelection, onQu
   </main><Footer settings={settings} /><QuickBuyBar selection={quickBuySelection} onBuy={onQuickBuy} onClear={onClearQuickBuy} />{infoProductId && <ProductInfoModal productId={infoProductId} onClose={() => setInfoProductId('')} />}</>;
 }
 
-function Footer({ settings }){return <footer><div className="footer-brand"><SiteLogo className="footer-logo" /><h3>FOR THE LOVE OF BOWLING</h3><p>100% Factory First Quality Products. No Seconds or Blems.</p></div><div><h4>SHOP</h4><a>Bowling Balls</a><a>Bowling Shoes</a><a>Bags & Accessories</a><a>Closeout Deals</a></div><div><h4>HELP</h4><a>Shipping Information</a><a>Returns & Exchanges</a><a>Contact Us</a><a>Protection Plans</a></div><div><h4>CONTACT</h4>{settings.phone && <a className="footer-contact-link" href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`}><Phone/> {settings.phone}</a>}{settings.email && <a className="footer-contact-link" href={`mailto:${settings.email}`}><Mail/> {settings.email}</a>}{settings.address && <p className="footer-contact-address"><MapPin/> {settings.address}</p>}<div className="social"><a>FB</a><a>IG</a><a>YT</a></div></div><div className="copyright">© 2026 BOWLER X PRO SHOP, LLC · ALL RIGHTS RESERVED</div></footer>}
+function Footer({ settings }) {
+  return <footer>
+    <div className="footer-brand"><SiteLogo className="footer-logo" /><h3>FOR THE LOVE OF BOWLING</h3><p>100% Factory First Quality Products. No Seconds or Blems.</p></div>
+    <div>
+      <h4>SHOP</h4>
+      <a href="#category/Bowling%20Balls">Bowling Balls</a>
+      <a href="#category/Accessories/Bowling%20Shoes">Bowling Shoes</a>
+      <a href="#category/Accessories">Bags &amp; Accessories</a>
+      <a href="#new-arrivals">Closeout Deals</a>
+    </div>
+    <div>
+      <h4>HELP</h4>
+      <a href="#help/shipping">Shipping Information</a>
+      <a href="#help/returns">Returns &amp; Exchanges</a>
+      <a href="#help/contact">Contact Us</a>
+      <a href="#help/protection">Protection Plans</a>
+    </div>
+    <div>
+      <h4>CONTACT</h4>
+      {settings.phone && <a className="footer-contact-link" href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`}><Phone/> {settings.phone}</a>}
+      {settings.email && <a className="footer-contact-link" href={`mailto:${settings.email}`}><Mail/> {settings.email}</a>}
+      {settings.address && <p className="footer-contact-address"><MapPin/> {settings.address}</p>}
+      <p className="footer-shipping-note"><Truck /> Free shipping in USA</p>
+      <div className="social"><a href="https://www.facebook.com" target="_blank" rel="noreferrer">FB</a><a href="https://www.instagram.com" target="_blank" rel="noreferrer">IG</a><a href="https://www.youtube.com" target="_blank" rel="noreferrer">YT</a></div>
+    </div>
+    <div className="copyright">© 2026 BOWLER X PRO SHOP, LLC · ALL RIGHTS RESERVED</div>
+  </footer>;
+}
+
+export function HelpPage({ topic }) {
+  const [settings, setSettings] = useState({ phone: '', email: '', address: '' });
+  useEffect(() => {
+    fetch(apiUrl('/api/homepage')).then((response) => response.ok ? response.json() : null).then((data) => {
+      const next = data?.settings || {};
+      setSettings({ phone: next.phone || '', email: next.email || '', address: next.address || '' });
+    }).catch(() => {});
+  }, []);
+
+  const pages = {
+    shipping: {
+      title: 'Shipping Information',
+      intro: 'We work to get your bowling gear to you quickly and safely.',
+      items: [
+        'Free shipping in USA on all eligible orders.',
+        'For orders outside the United States, shipping fees are calculated after you complete your shipping address at checkout.',
+        'Delivery times may vary by destination, product availability, and carrier schedules.',
+        'After placing your order, copy your order code and keep it handy so our team can assist you quickly with shipping or payment questions.',
+      ],
+    },
+    returns: {
+      title: 'Returns & Exchanges',
+      intro: 'We want you to be confident in every purchase from BowlersX.',
+      items: [
+        'If you need help with a return or exchange, contact our team with your order code and details about the item.',
+        'Products should be in their original condition unless there is a defect or fulfillment issue.',
+        'Return and exchange eligibility may vary by product type and condition; our team will guide you through the best next steps.',
+        'For the fastest support, include photos or a short description of the issue when you reach out.',
+      ],
+    },
+    contact: {
+      title: 'Contact Us',
+      intro: 'Need help with an order, shipping, or product information? We are here to help.',
+      items: [
+        'When contacting us about an order, please include your copied order code so we can locate it quickly.',
+        settings.phone ? `Phone: ${settings.phone}` : 'Phone support details will appear here when available.',
+        settings.email ? `Email: ${settings.email}` : 'Email support details will appear here when available.',
+        settings.address ? `Address: ${settings.address}` : 'Store address details will appear here when available.',
+      ],
+    },
+    protection: {
+      title: 'Protection Plans',
+      intro: 'Protect your bowling equipment and shop with confidence.',
+      items: [
+        'Protection plan availability and coverage details may vary by product.',
+        'If a protection plan is offered for your item, review the plan terms shown with the product or ask our team before placing your order.',
+        'For questions about coverage, claims, or eligibility, contact us with your product details and order code.',
+        'We can help you choose the right option for your bowling ball, shoes, bag, or accessories.',
+      ],
+    },
+  };
+
+  const page = pages[topic] || pages.shipping;
+  return (
+    <main className="help-page">
+      <div className="help-page-shell">
+        <button className="back-button" onClick={() => { location.hash = ''; }}>← Back to store</button>
+        <span className="help-page-eyebrow">BOWLERSX HELP</span>
+        <h1>{page.title}</h1>
+        <p className="help-page-intro">{page.intro}</p>
+        <div className="help-page-card">
+          <ul>
+            {page.items.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        </div>
+        {topic === 'shipping' && <p className="help-page-highlight"><Truck /> Free shipping in USA. Shipping fees for other countries are calculated after you complete your shipping address.</p>}
+        <div className="help-page-links">
+          <a href="#help/shipping">Shipping Information</a>
+          <a href="#help/returns">Returns &amp; Exchanges</a>
+          <a href="#help/contact">Contact Us</a>
+          <a href="#help/protection">Protection Plans</a>
+        </div>
+      </div>
+    </main>
+  );
+}
