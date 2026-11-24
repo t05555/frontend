@@ -30,11 +30,11 @@ export default function Checkout({ cartItems, setCartItems, setCart, directItems
   const [error, setError] = useState('');
   const [chatPersistenceWarning, setChatPersistenceWarning] = useState('');
   const [form, setForm] = useState({
-    email:'', firstName:'', lastName:'', company:'', address:'', apartment:'', city:'', state:'', zip:'', country:'United States', phone:'', saveAddress:false,
+    email:'', firstName:'', lastName:'', company:'', address:'', apartment:'', city:'', state:'', zip:'', country:'United States', phone:'', paymentMethod:'paypal', saveAddress:false,
   });
 
   const subtotal = useMemo(() => checkoutItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0), [checkoutItems]);
-  const shippingReady = Boolean(form.country && form.address && form.city && form.state && form.zip);
+  const shippingReady = Boolean(form.country && form.address && form.city && form.state);
   const shippingCost = !checkoutItems.length ? 0 : (form.country === 'United States' ? 0 : 12.95);
   const shipping = shippingReady ? shippingCost : 0;
   const tax = subtotal * 0;
@@ -60,7 +60,7 @@ export default function Checkout({ cartItems, setCartItems, setCart, directItems
           email: form.email,
           phone: form.phone,
           shippingAddress: { firstName:form.firstName, lastName:form.lastName, company:form.company, address:form.address, apartment:form.apartment, city:form.city, state:form.state, zip:form.zip, country:form.country },
-          paymentMethod: 'manual',
+          paymentMethod: form.paymentMethod,
           items: checkoutItems.map((item) => ({ product: item.productId, name: item.name, quantity:item.quantity, price:item.price, weight:item.weight || '' })),
           total,
         }),
@@ -102,10 +102,10 @@ export default function Checkout({ cartItems, setCartItems, setCart, directItems
       </div>
       {orderSummary}
       <div className="checkout-form checkout-form-block checkout-shipping-block">
-        <div className="checkout-section"><div className="checkout-heading"><span>2</span><h2>Shipping address</h2></div><div className="checkout-grid"><label>First name<input required value={form.firstName} onChange={(e)=>update('firstName',e.target.value)} /></label><label>Last name<input required value={form.lastName} onChange={(e)=>update('lastName',e.target.value)} /></label></div><label>Company (optional)<input value={form.company} onChange={(e)=>update('company',e.target.value)} /></label><label>Street address<input required value={form.address} onChange={(e)=>update('address',e.target.value)} placeholder="Street address" /></label><label>Apartment, suite, etc. (optional)<input value={form.apartment} onChange={(e)=>update('apartment',e.target.value)} /></label><div className="checkout-grid three"><label>City<input required value={form.city} onChange={(e)=>update('city',e.target.value)} /></label><label>State<input required value={form.state} onChange={(e)=>update('state',e.target.value)} /></label><label>ZIP code<input required value={form.zip} onChange={(e)=>update('zip',e.target.value)} /></label></div><div className="checkout-grid"><label>Country<select value={form.country} onChange={(e)=>update('country',e.target.value)}><option>United States</option><option>Canada</option></select></label><label>Phone number<input required type="tel" value={form.phone} onChange={(e)=>update('phone',e.target.value)} /></label></div></div>
+        <div className="checkout-section"><div className="checkout-heading"><span>2</span><h2>Shipping address</h2></div><div className="checkout-grid"><label>First name<input required value={form.firstName} onChange={(e)=>update('firstName',e.target.value)} /></label><label>Last name<input required value={form.lastName} onChange={(e)=>update('lastName',e.target.value)} /></label></div><label>Company (optional)<input value={form.company} onChange={(e)=>update('company',e.target.value)} /></label><label>Street address<input required value={form.address} onChange={(e)=>update('address',e.target.value)} placeholder="Street address" /></label><label>Apartment, suite, etc. (optional)<input value={form.apartment} onChange={(e)=>update('apartment',e.target.value)} /></label><div className="checkout-grid"><label>City<input required value={form.city} onChange={(e)=>update('city',e.target.value)} /></label><label>State<input required value={form.state} onChange={(e)=>update('state',e.target.value)} /></label></div><div className="checkout-grid"><label>Country<select value={form.country} onChange={(e)=>update('country',e.target.value)}><option>United States</option><option>Canada</option></select></label><label>Phone number<input required type="tel" value={form.phone} onChange={(e)=>update('phone',e.target.value)} /></label></div></div>
       </div>
       <div className="checkout-form checkout-form-block checkout-payment-block">
-        <div className="checkout-section"><div className="checkout-heading"><span>3</span><h2>Payment arrangement</h2></div><div className="checkout-payment-note"><ShieldCheck/><p><b>Payment is arranged after order confirmation.</b><br/>Our team will contact you using the details above to confirm your order and arrange payment.</p></div></div>
+        <div className="checkout-section"><div className="checkout-heading"><span>3</span><h2>Payment method</h2></div><label>Preferred payment method<select required value={form.paymentMethod} onChange={(e)=>update('paymentMethod',e.target.value)}><option value="paypal">PayPal</option><option value="cashapp">Cash App</option><option value="chime">Chime</option><option value="zelle">Zelle</option></select></label><div className="checkout-payment-note"><ShieldCheck/><p><b>Payment is arranged after order confirmation.</b><br/>Our team will contact you using the details above to confirm your order and arrange payment via your selected method.</p></div></div>
         <button className="place-order-button" type="submit" disabled={submitting || !checkoutItems.length}>{submitting?'PLACING ORDER...':'PLACE ORDER'}</button>
       </div>
     </form></main>;
