@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X } from 'lucide-react';
 import { apiUrl } from '../api.js';
 
+const money = (value) => `$${Number(value || 0).toFixed(2)}`;
+
 function messageTime(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -19,6 +21,7 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const messagesEnd = useRef(null);
+  const orderItems = Array.isArray(order?.items) ? order.items : [];
 
   useEffect(() => {
     let active = true;
@@ -96,15 +99,36 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
           <span className="order-chat-icon"><MessageCircle aria-hidden="true" /></span>
           <div>
             <h2>{isAdmin ? `Order #${String(order._id).slice(-8).toUpperCase()}` : 'Order chat'}</h2>
-            <p>{isAdmin ? `${order.customer} · ${order.status}` : 'BowlersX Support · replies update automatically'}</p>
+            <p>{isAdmin ? `${order.customer} · ${order.status}` : 'Chat with BowlersX Support about your order'}</p>
           </div>
         </div>
         {onClose && <button className="order-chat-close" type="button" aria-label="Close conversation" onClick={onClose}><X /></button>}
       </header>
 
+      <div className="order-chat-order" aria-label="Your order">
+        <div className="order-chat-order-head">
+          <strong>Order #{String(order?._id || '').slice(-8).toUpperCase()}</strong>
+          {order?.status && <span className="order-chat-status">{order.status}</span>}
+        </div>
+        {orderItems.length > 0 ? (
+          <ul className="order-chat-items">
+            {orderItems.map((item, index) => (
+              <li key={item._id || `${item.product || item.name}-${index}`}>
+                <span>{item.name || 'Item'}{item.weight ? ` (${item.weight} lb)` : ''} × {item.quantity || 1}</span>
+                <b>{money(Number(item.price || 0) * Number(item.quantity || 1))}</b>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="order-chat-empty-order">Your order details will appear here once available.</p>
+        )}
+        <div className="order-chat-total"><span>Total</span><b>{money(order?.total)}</b></div>
+        <p className="order-chat-support-note">You can reply here anytime. BowlersX Support will respond in this chat.</p>
+      </div>
+
       <div className="order-chat-messages" role="log" aria-live="polite" aria-label="Messages">
         {loading && messages.length === 0 && <p className="order-chat-empty">Loading conversation…</p>}
-        {!loading && messages.length === 0 && <p className="order-chat-empty">Ask BowlersX Support a question about this order.</p>}
+        {!loading && messages.length === 0 && <p className="order-chat-empty">Your order was placed. Send a message below if you have any questions — our team will reply here.</p>}
         {messages.map((item, index) => {
           const ownMessage = isAdmin ? item.sender === 'admin' : item.sender === 'customer';
           const author = ownMessage ? 'You' : isAdmin ? 'Customer' : 'BowlersX Support';
@@ -127,7 +151,7 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
           value={message}
           maxLength={1000}
           rows={2}
-          placeholder="Write a message…"
+          placeholder="Write a message to BowlersX Support…"
           onChange={(event) => setMessage(event.target.value)}
         />
         <button type="submit" disabled={!message.trim() || sending || !authToken}>
