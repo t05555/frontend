@@ -9,3 +9,5 @@
 .bowling-nav .actions .nav-order-chat{position:relative}
 .bowling-nav .actions .nav-order-chat::after{content:'';position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:#22c55e;border:1px solid #1c2d42}
 @media(max-width:600px){.bowling-nav .actions .nav-order-chat small{display:none}}
+
+.site-header-sticky{position:sticky;top:0;z-index:1000;background:#fff}

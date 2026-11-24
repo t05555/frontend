@@ -18,7 +18,7 @@ export function productWeightOptions(product) {
 
 function Header({ cart, onSearch, search, settings, hasActiveOrderChat, onOpenOrderChat }) {
   const [open, setOpen] = useState(false);
-  return <>
+  return <div className="site-header-sticky">
     {(settings.phone || settings.email || settings.address) && <div className="store-contact-bar">
       {settings.phone && <a href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`}><Phone/> {settings.phone}</a>}
       {settings.email && <a href={`mailto:${settings.email}`}><Mail/> {settings.email}</a>}
@@ -32,7 +32,7 @@ function Header({ cart, onSearch, search, settings, hasActiveOrderChat, onOpenOr
     </header>
     <div className="announcement coupon-bar"><div><strong>Take $5 off your purchase of $50+ today!</strong><button>Apply Coupon <ChevronRight/></button></div><small>Coupon exclusions may apply.</small></div>
     <nav className={open ? 'open bowling-nav-menu' : 'bowling-nav-menu'}><button onClick={() => location.hash = '#category/Bowling Balls'}>Bowling Balls <ChevronRight/></button><button onClick={() => location.hash = '#category/Accessories'}>Accessories <ChevronRight/></button><button onClick={() => location.hash = '#category/Accessories/Bowling Bags'}>Bowling Bags <ChevronRight/></button><button onClick={() => location.hash = '#category/Accessories/Bowling Shoes'}>Bowling Shoes <ChevronRight/></button><button onClick={() => location.hash = '#new-arrivals'}>New Arrivals</button><button onClick={() => location.hash = '#category/Accessories'}>Deals</button></nav>
-  </>;
+  </div>;
 }
 
 export function ProductCard({ product, add, sale, quickBuyItem, onQuickBuyToggle, onQuickBuyWeightChange }) {
