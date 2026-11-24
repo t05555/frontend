@@ -21,6 +21,7 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const messagesEnd = useRef(null);
+  const messageInput = useRef(null);
   const orderItems = Array.isArray(order?.items) ? order.items : [];
 
   useEffect(() => {
@@ -65,6 +66,10 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
 
+  useEffect(() => {
+    if (authToken && !loading) messageInput.current?.focus();
+  }, [authToken, loading]);
+
   async function sendMessage(event) {
     event.preventDefault();
     const text = message.trim();
@@ -89,6 +94,14 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
       setError(requestError.message);
     } finally {
       setSending(false);
+      window.setTimeout(() => messageInput.current?.focus(), 0);
+    }
+  }
+
+  function onComposeKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      if (message.trim() && !sending && authToken) sendMessage(event);
     }
   }
 
