@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MessageCircle, Send, X } from 'lucide-react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { MessageCircle, Send, X, WifiOff } from 'lucide-react';
 import { apiUrl } from '../api.js';
+import { createChatSocket } from '../socket.js';
 
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 
@@ -9,93 +10,246 @@ function messageTime(value) {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-export default function OrderChat({ order, conversationToken, adminToken, onClose }) {
+function toDisplayMessage(item) {
+  return {
+    _id: item._id || item.id || undefined,
+    sender: item.sender || item.senderRole,
+    senderRole: item.senderRole || item.sender,
+    text: item.text || item.message || '',
+    message: item.message || item.text || '',
+    createdAt: item.createdAt,
+    read: !!item.read,
+    clientMessageId: item.clientMessageId,
+  };
+}
+
+export default function OrderChat({ order, conversationToken, adminToken, onClose, onMessagesRead }) {
   const isAdmin = Boolean(adminToken);
   const authToken = adminToken || conversationToken;
-  const endpoint = isAdmin
-    ? `/api/admin/orders/${order._id}/messages`
-    : `/api/orders/${order._id}/messages`;
+  const orderId = order?._id;
   const [messages, setMessages] = useState([]);
+  const [conversationId, setConversationId] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [connected, setConnected] = useState(false);
+  const [typingRole, setTypingRole] = useState('');
   const messagesEnd = useRef(null);
   const messageInput = useRef(null);
+  const socketRef = useRef(null);
+  const typingTimeout = useRef(null);
+  const stopTypingTimeout = useRef(null);
+  const lastTypingSent = useRef(0);
   const orderItems = Array.isArray(order?.items) ? order.items : [];
+
+  const legacyEndpoint = isAdmin ? `/api/admin/orders/${orderId}/messages` : `/api/orders/${orderId}/messages`;
+
+  function mergeMessages(next) {
+    const normalized = (next || []).map(toDisplayMessage);
+    setMessages((current) => {
+      const byKey = new Map();
+      [...current, ...normalized].forEach((m) => {
+        const key = m._id || m.clientMessageId || `${m.sender || m.senderRole}-${m.createdAt}-${m.text || m.message}`;
+        if (!key) return;
+        byKey.set(key, { ...byKey.get(key), ...m });
+      });
+      return [...byKey.values()].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    });
+  }
+
+  async function markRead(cid = conversationId) {
+    if (!authToken || !cid) return;
+    try {
+      const res = await fetch(apiUrl(`/api/order-chat/${cid}/read`), {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) onMessagesRead?.();
+    } catch { /* ignore */ }
+  }
+
+  async function loadConversation() {
+    if (!authToken || !orderId) return;
+    try {
+      const res = await fetch(apiUrl(`/api/order-chat/${orderId}`), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Unable to load conversation');
+      const cid = data.conversation?._id || data.conversationId || '';
+      if (cid) setConversationId(cid);
+      mergeMessages(data.messages || []);
+      setError('');
+      if (cid) markRead(cid);
+      return { conversationId: cid, messages: data.messages || [] };
+    } catch (e) {
+      // fallback to legacy endpoint
+      try {
+        const res = await fetch(apiUrl(legacyEndpoint), { headers: { Authorization: `Bearer ${authToken}` } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || e.message || 'Unable to load order messages');
+        mergeMessages(data.messages || []);
+        setError('');
+        return { conversationId: '', messages: data.messages || [] };
+      } catch (fallbackErr) {
+        setError(fallbackErr.message || e.message);
+        return null;
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
-    let requestPending = false;
+    setLoading(true);
+    setMessages([]);
+    setConversationId('');
+    setError('');
+    (async () => {
+      if (!active) return;
+      const result = await loadConversation();
+      if (!active || !authToken || !orderId) return;
+      const socket = createChatSocket(authToken);
+      socketRef.current = socket;
+      if (!socket) return;
 
-    async function refreshMessages() {
-      if (requestPending || !authToken) return;
-      requestPending = true;
-      try {
-        const response = await fetch(apiUrl(endpoint), {
-          headers: { Authorization: `Bearer ${authToken}` },
+      socket.on('connect', () => {
+        setConnected(true);
+        setError('');
+        socket.emit('chat:join', { orderId }, (ack) => {
+          if (ack?.ok) {
+            if (ack.conversationId) setConversationId(ack.conversationId);
+            if (Array.isArray(ack.messages)) mergeMessages(ack.messages);
+            if (ack.conversationId) {
+              markRead(ack.conversationId);
+              socket.emit('chat:read', { conversationId: ack.conversationId });
+            }
+          } else if (ack?.error) {
+            // keep REST fallback usable
+          }
         });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || 'Unable to load order messages');
-        if (active) {
-          const nextMessages = data.messages || [];
-          setMessages((current) => current.length === nextMessages.length && current.every((item, index) => (
-            item._id === nextMessages[index]._id &&
-            item.text === nextMessages[index].text &&
-            item.sender === nextMessages[index].sender
-          )) ? current : nextMessages);
-          setError('');
+      });
+      socket.on('disconnect', () => setConnected(false));
+      socket.on('connect_error', () => setConnected(false));
+      socket.on('chat:new-message', (payload) => {
+        if (!payload?.message) return;
+        const payloadOrder = String(payload.orderId || '');
+        const payloadConv = String(payload.conversationId || '');
+        if (payloadOrder && String(orderId) !== payloadOrder) return;
+        mergeMessages([payload.message]);
+        const incomingRole = payload.message.senderRole || payload.message.sender;
+        const mine = isAdmin ? incomingRole === 'admin' : incomingRole === 'customer';
+        if (!mine) {
+          const cid = payloadConv || conversationId;
+          if (cid) {
+            socket.emit('chat:read', { conversationId: cid });
+            markRead(cid);
+          }
+          onMessagesRead?.();
         }
-      } catch (requestError) {
-        if (active) setError(requestError.message);
-      } finally {
-        requestPending = false;
-        if (active) setLoading(false);
-      }
-    }
+      });
+      socket.on('chat:typing', (payload) => {
+        const payloadConv = String(payload?.conversationId || '');
+        if (conversationId && payloadConv && payloadConv !== conversationId) return;
+        if (payload?.role && payload.role !== (isAdmin ? 'admin' : 'customer')) setTypingRole(payload.role);
+      });
+      socket.on('chat:stop-typing', (payload) => {
+        const payloadConv = String(payload?.conversationId || '');
+        if (conversationId && payloadConv && payloadConv !== conversationId) return;
+        setTypingRole('');
+      });
+      socket.on('chat:read', () => onMessagesRead?.());
+    })();
 
-    refreshMessages();
-    const interval = window.setInterval(refreshMessages, 4000);
+    // REST fallback polling when socket disconnected/unavailable
+    const interval = window.setInterval(() => {
+      if (!socketRef.current?.connected) loadConversation();
+    }, 5000);
+
     return () => {
       active = false;
       window.clearInterval(interval);
+      if (typingTimeout.current) window.clearTimeout(typingTimeout.current);
+      if (stopTypingTimeout.current) window.clearTimeout(stopTypingTimeout.current);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
-  }, [authToken, endpoint]);
+  }, [authToken, orderId, isAdmin]);
 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages]);
+  }, [messages, typingRole]);
 
   useEffect(() => {
     if (authToken && !loading) messageInput.current?.focus();
   }, [authToken, loading]);
 
-  async function sendMessage(event) {
-    event.preventDefault();
-    const text = message.trim();
-    if (!text || sending) return;
+  async function sendViaRest(text) {
+    const endpoint = conversationId ? `/api/order-chat/${orderId}/messages` : legacyEndpoint;
+    const response = await fetch(apiUrl(endpoint), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ message: text }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Unable to send message');
+    mergeMessages(data.messages || (data.message ? [data.message] : []));
+  }
 
+  async function sendMessage(event) {
+    event?.preventDefault?.();
+    const text = message.trim();
+    if (!text || sending || !authToken) return;
     setSending(true);
     setError('');
+    const clientMessageId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimistic = { _id: clientMessageId, clientMessageId, sender: isAdmin ? 'admin' : 'customer', senderRole: isAdmin ? 'admin' : 'customer', text, message: text, createdAt: new Date().toISOString(), read: false };
+    mergeMessages([optimistic]);
+    setMessage('');
     try {
-      const response = await fetch(apiUrl(endpoint), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ message: text }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Unable to send message');
-      setMessages(data.messages || []);
-      setMessage('');
+      const socket = socketRef.current;
+      if (socket?.connected) {
+        await new Promise((resolve, reject) => {
+          socket.emit('chat:send', { orderId, conversationId, message: text, clientMessageId }, (ack) => {
+            if (ack?.ok) {
+              if (ack.message) mergeMessages([ack.message]);
+              resolve();
+            } else reject(new Error(ack?.error || 'Unable to send message'));
+          });
+          window.setTimeout(() => reject(new Error('Send timed out')), 8000);
+        });
+      } else {
+        await sendViaRest(text);
+      }
+      if (conversationId && socket?.connected) socket.emit('chat:stop-typing', { conversationId });
     } catch (requestError) {
       setError(requestError.message);
+      setMessages((current) => current.filter((m) => m.clientMessageId !== clientMessageId && m._id !== clientMessageId));
+      setMessage(text);
     } finally {
       setSending(false);
       window.setTimeout(() => messageInput.current?.focus(), 0);
     }
+  }
+
+  function emitTyping() {
+    const socket = socketRef.current;
+    if (!socket?.connected || !conversationId) return;
+    const now = Date.now();
+    if (now - lastTypingSent.current > 1500) {
+      socket.emit('chat:typing', { conversationId });
+      lastTypingSent.current = now;
+    }
+    if (stopTypingTimeout.current) window.clearTimeout(stopTypingTimeout.current);
+    stopTypingTimeout.current = window.setTimeout(() => {
+      socket.emit('chat:stop-typing', { conversationId });
+      lastTypingSent.current = 0;
+    }, 2000);
   }
 
   function onComposeKeyDown(event) {
@@ -105,14 +259,21 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
     }
   }
 
+  const canSend = Boolean(message.trim() && !sending && authToken);
+  const typingLabel = typingRole ? (typingRole === 'admin' ? 'BowlersX Support is typing…' : 'Customer is typing…') : '';
+
   return (
     <section className={`order-chat ${isAdmin ? 'order-chat-admin' : 'order-chat-customer'}`} aria-label="Order conversation">
       <header className="order-chat-header">
         <div className="order-chat-title">
           <span className="order-chat-icon"><MessageCircle aria-hidden="true" /></span>
           <div>
-            <h2>{isAdmin ? `Order #${String(order._id).slice(-8).toUpperCase()}` : 'Order chat'}</h2>
-            <p>{isAdmin ? `${order.customer} · ${order.status}` : 'Chat with BowlersX Support about your order'}</p>
+            <h2>{isAdmin ? `Order #${String(order?._id || '').slice(-8).toUpperCase()}` : 'Order chat'}</h2>
+            <p>
+              {isAdmin ? `${order?.customer || 'Customer'} · ${order?.status || 'Order'}` : 'Chat with BowlersX Support about your order'}
+              {' · '}
+              <span className={`order-chat-connection ${connected ? 'is-connected' : 'is-disconnected'}`}>{connected ? 'Live' : 'Reconnecting'}</span>
+            </p>
           </div>
         </div>
         {onClose && <button className="order-chat-close" type="button" aria-label="Close conversation" onClick={onClose}><X /></button>}
@@ -136,40 +297,44 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
           <p className="order-chat-empty-order">Your order details will appear here once available.</p>
         )}
         <div className="order-chat-total"><span>Total</span><b>{money(order?.total)}</b></div>
-        <p className="order-chat-support-note">You can reply here anytime. BowlersX Support will respond in this chat.</p>
+        <p className="order-chat-support-note">You can reply here anytime. {isAdmin ? 'Customer replies appear live in this conversation.' : 'BowlersX Support will respond in this chat.'}</p>
       </div>
 
       <div className="order-chat-messages" role="log" aria-live="polite" aria-label="Messages">
+        {!connected && !loading && <p className="order-chat-connection-banner"><WifiOff size={14} /> Connection lost. Reconnecting automatically…</p>}
         {loading && messages.length === 0 && <p className="order-chat-empty">Loading conversation…</p>}
-        {!loading && messages.length === 0 && <p className="order-chat-empty">Your order was placed. Send a message below if you have any questions — our team will reply here.</p>}
+        {!loading && messages.length === 0 && <p className="order-chat-empty">{isAdmin ? 'No messages yet. Send a reply to start the conversation.' : 'Your order was placed. Send a message below if you have any questions — our team will reply here.'}</p>}
         {messages.map((item, index) => {
-          const ownMessage = isAdmin ? item.sender === 'admin' : item.sender === 'customer';
+          const senderRole = item.senderRole || item.sender;
+          const ownMessage = isAdmin ? senderRole === 'admin' : senderRole === 'customer';
           const author = ownMessage ? 'You' : isAdmin ? 'Customer' : 'BowlersX Support';
+          const text = item.text || item.message || '';
           return (
-            <article className={`order-chat-message ${ownMessage ? 'is-own' : ''}`} key={item._id || `${item.createdAt}-${index}`}>
+            <article className={`order-chat-message ${ownMessage ? 'is-own' : ''}`} key={item._id || item.clientMessageId || `${item.createdAt}-${index}`}>
               <span>{author}</span>
-              <p>{item.text}</p>
+              <p>{text}</p>
               <time dateTime={item.createdAt}>{messageTime(item.createdAt)}</time>
             </article>
           );
         })}
+        {typingLabel && <p className="order-chat-typing">{typingLabel}</p>}
         <div ref={messagesEnd} />
       </div>
 
       {error && <p className="order-chat-error" role="alert">{error}</p>}
       <form className="order-chat-compose" onSubmit={sendMessage}>
-        <label className="visually-hidden" htmlFor={`order-message-${order._id}`}>Message</label>
+        <label className="visually-hidden" htmlFor={`order-message-${orderId}`}>Message</label>
         <textarea
-          id={`order-message-${order._id}`}
+          id={`order-message-${orderId}`}
           ref={messageInput}
           value={message}
           maxLength={1000}
           rows={2}
-          placeholder="Write a message to BowlersX Support… (Enter to send, Shift+Enter for a new line)"
-          onChange={(event) => setMessage(event.target.value)}
+          placeholder={isAdmin ? 'Reply to customer… (Enter to send, Shift+Enter for a new line)' : 'Write a message to BowlersX Support… (Enter to send, Shift+Enter for a new line)'}
+          onChange={(event) => { setMessage(event.target.value); emitTyping(); }}
           onKeyDown={onComposeKeyDown}
         />
-        <button type="submit" disabled={!message.trim() || sending || !authToken}>
+        <button type="submit" disabled={!canSend}>
           <Send aria-hidden="true" />
           <span>{sending ? 'Sending…' : 'Send'}</span>
         </button>

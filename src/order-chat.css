@@ -287,3 +287,26 @@
     width: 100%;
   }
 }
+
+/* Order Messages inbox */
+.admin-order-messages { display: grid; gap: 16px; }
+.admin-order-messages-toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.admin-order-messages-layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 16px; min-height: 560px; }
+.admin-order-messages-inbox { display: grid; gap: 10px; align-content: start; max-height: 70vh; overflow: auto; padding-right: 4px; }
+.admin-order-messages-item { text-align: left; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 12px; display: grid; gap: 4px; cursor: pointer; }
+.admin-order-messages-item.active { border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,.12); }
+.admin-order-messages-item-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.admin-order-messages-item p { margin: 0; color: #334155; font-size: 13px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.admin-order-messages-item small, .admin-order-messages-item time { color: #64748b; font-size: 12px; }
+.admin-order-messages-badge { background: #0f766e; color: #fff; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
+.admin-order-messages-panel { min-width: 0; }
+.admin-order-messages-panel .order-chat { height: 100%; min-height: 560px; max-height: 75vh; }
+.order-chat-connection.is-connected { color: #16a34a; font-weight: 600; }
+.order-chat-connection.is-disconnected { color: #d97706; font-weight: 600; }
+.order-chat-connection-banner { margin: 0; padding: 8px 10px; border-radius: 10px; background: #fff7ed; color: #9a3412; display: inline-flex; gap: 6px; align-items: center; font-size: 12px; }
+.order-chat-typing { margin: 0; font-size: 12px; color: #64748b; font-style: italic; }
+@media (max-width: 960px) {
+  .admin-order-messages-layout { grid-template-columns: 1fr; }
+  .admin-order-messages-inbox { max-height: none; }
+  .admin-order-messages-panel .order-chat { min-height: 420px; max-height: none; }
+}
