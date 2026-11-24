@@ -70,6 +70,7 @@ export default function Checkout({ cartItems, setCartItems, setCart, directItems
       const orderChat = { order, conversationToken: chatToken };
       try {
         sessionStorage.setItem(orderChatStorageKey, JSON.stringify(orderChat));
+        window.dispatchEvent(new Event('bowlerx-order-chat-updated'));
       } catch {
         setChatPersistenceWarning('This conversation may not be available if you leave or refresh this page.');
       }
@@ -84,10 +85,10 @@ export default function Checkout({ cartItems, setCartItems, setCart, directItems
   if (stage === 'complete' && complete) {
     const orderNumber = `#${String(complete.order._id).slice(-8).toUpperCase()}`;
     const leaveOrderChat = () => {
-      sessionStorage.removeItem(orderChatStorageKey);
+      window.dispatchEvent(new Event('bowlerx-order-chat-updated'));
       location.hash = '';
     };
-    return <main className="checkout-page checkout-chat-page"><div className="checkout-brand"><button onClick={leaveOrderChat}><SiteLogo className="checkout-logo" /></button></div><CheckoutSteps current={2}/><div className="order-chat-screen" id="order-chat-screen"><div className="order-chat-screen-head"><span className="order-chat-badge">ORDER PLACED</span><h1>Order chat</h1><p>Your order <b>{orderNumber}</b> was placed successfully. You can see your order below and chat with BowlersX Support — our team will reply here and you can reply anytime.</p></div>{chatPersistenceWarning && <p className="order-chat-unavailable">{chatPersistenceWarning}</p>}{complete.conversationToken ? <OrderChat order={complete.order} conversationToken={complete.conversationToken} /> : <div className="order-chat-fallback"><p className="order-chat-unavailable">Your order is confirmed, but a secure chat session could not be started. Contact support with order number {orderNumber}.</p></div>}<button className="order-chat-return" onClick={leaveOrderChat}>CONTINUE SHOPPING</button></div></main>;
+    return <main className="checkout-page checkout-chat-page"><div className="checkout-brand"><button onClick={leaveOrderChat}><SiteLogo className="checkout-logo" /></button></div><CheckoutSteps current={2}/><div className="order-chat-screen" id="order-chat-screen"><div className="order-chat-screen-head"><span className="order-chat-badge">ORDER PLACED</span><h1>Order chat</h1><p>Your order <b>{orderNumber}</b> was placed successfully. You can see your order below and chat with BowlersX Support — our team will reply here and you can reply anytime.</p></div>{chatPersistenceWarning && <p className="order-chat-unavailable">{chatPersistenceWarning}</p>}{complete.conversationToken ? <OrderChat order={complete.order} conversationToken={complete.conversationToken} /> : <div className="order-chat-fallback"><p className="order-chat-unavailable">Your order is confirmed, but a secure chat session could not be started. Contact support with order number {orderNumber}.</p></div>}<div className="order-chat-actions"><button className="order-chat-return" onClick={leaveOrderChat}>CONTINUE SHOPPING</button><button className="order-chat-open-chat" type="button" onClick={() => { window.dispatchEvent(new Event('bowlerx-order-chat-updated')); location.hash = '#checkout'; }}>OPEN CHAT</button></div></div></main>;
   }
   const shippingLabel = !checkoutItems.length ? 'FREE' : (shippingReady ? (shippingCost ? money(shippingCost) : 'FREE') : 'Calculated after shipping address');
   const orderSummary = (

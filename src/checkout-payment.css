@@ -130,3 +130,7 @@
   .order-chat-compose button { justify-content: center; }
   .order-chat-message { max-width: 92%; }
 }
+
+.order-chat-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+.order-chat-actions .order-chat-return { margin: 0; }
+.order-chat-open-chat { display: inline-flex; align-items: center; justify-content: center; height: 44px; border: 1px solid #111827; background: #fff; color: #111827; padding: 0 18px; font-size: 11px; font-weight: 800; cursor: pointer; }
