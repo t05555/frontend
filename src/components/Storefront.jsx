@@ -219,17 +219,21 @@ function Footer({ settings }) {
     <div className="footer-brand"><SiteLogo className="footer-logo" /><h3>FOR THE LOVE OF BOWLING</h3><p>100% Factory First Quality Products. No Seconds or Blems.</p></div>
     <div>
       <h4>SHOP</h4>
-      <a href="#category/Bowling%20Balls">Bowling Balls</a>
-      <a href="#category/Accessories/Bowling%20Shoes">Bowling Shoes</a>
-      <a href="#category/Accessories/Bowling%20Bags">Bowling Bags</a>
-      <a href="#category/Accessories">Accessories</a>
+      <p>Bowling Balls</p>
+      <p>Bowling Shoes</p>
+      <p>Bowling Bags</p>
+      <p>Accessories</p>
     </div>
     <div>
       <h4>HELP</h4>
       <a href="#help/shipping">Shipping Information</a>
       <a href="#help/returns">Returns &amp; Exchanges</a>
-      <a href="#help/contact">Contact Us</a>
       <a href="#help/protection">Protection Plans</a>
+    </div>
+    <div>
+      <h4>ABOUT US</h4>
+      <p>BowlersX Pro Shop is your trusted source for quality bowling balls, shoes, bags, and accessories.</p>
+      <p>We are committed to providing 100% factory first quality products for every bowler.</p>
     </div>
     <div>
       <h4>CONTACT US</h4>
