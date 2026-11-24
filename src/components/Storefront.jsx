@@ -221,8 +221,8 @@ function Footer({ settings }) {
       <h4>SHOP</h4>
       <a href="#category/Bowling%20Balls">Bowling Balls</a>
       <a href="#category/Accessories/Bowling%20Shoes">Bowling Shoes</a>
-      <a href="#category/Accessories">Bags &amp; Accessories</a>
-      <a href="#new-arrivals">Closeout Deals</a>
+      <a href="#category/Accessories/Bowling%20Bags">Bowling Bags</a>
+      <a href="#category/Accessories">Accessories</a>
     </div>
     <div>
       <h4>HELP</h4>
@@ -232,10 +232,12 @@ function Footer({ settings }) {
       <a href="#help/protection">Protection Plans</a>
     </div>
     <div>
-      <h4>CONTACT</h4>
+      <h4>CONTACT US</h4>
       {settings.phone && <a className="footer-contact-link" href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`}><Phone/> {settings.phone}</a>}
       {settings.email && <a className="footer-contact-link" href={`mailto:${settings.email}`}><Mail/> {settings.email}</a>}
       {settings.address && <p className="footer-contact-address"><MapPin/> {settings.address}</p>}
+      {!settings.phone && !settings.email && !settings.address && <p className="footer-contact-address">Contact information will be available soon.</p>}
+      <h4 className="footer-subhead">SHIPPING</h4>
       <p className="footer-shipping-note"><Truck /> Free shipping in USA</p>
       <div className="social"><a href="https://www.facebook.com" target="_blank" rel="noreferrer">FB</a><a href="https://www.instagram.com" target="_blank" rel="noreferrer">IG</a><a href="https://www.youtube.com" target="_blank" rel="noreferrer">YT</a></div>
     </div>

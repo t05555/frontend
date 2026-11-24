@@ -271,3 +271,5 @@ footer a:hover{text-decoration:underline}
 .help-page-links a{display:inline-flex;align-items:center;padding:10px 14px;border:1px solid #d1d5db;border-radius:999px;color:#111827;text-decoration:none;font-size:12px;font-weight:700}
 .help-page-links a:hover{border-color:#9ca3af;background:#f9fafb}
 @media(max-width:700px){.help-page h1{font-size:38px}.help-page{padding:20px 14px 40px}}
+
+.footer-subhead{margin:16px 0 8px;font-size:12px;letter-spacing:.08em}
