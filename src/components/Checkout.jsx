@@ -1,20 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight, ShoppingCart, Trash2, Truck, ShieldCheck } from 'lucide-react';
+import { ChevronRight, ShoppingCart, Trash2, Truck, ShieldCheck, Copy, Check } from 'lucide-react';
 import SiteLogo from './SiteLogo.jsx';
-import OrderChat from './OrderChat.jsx';
 import { apiUrl } from '../api.js';
 
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
-const orderChatStorageKey = 'bowlerx-active-order-chat';
-
-function restoreOrderChat() {
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(orderChatStorageKey) || 'null');
-    return saved?.order?._id ? saved : null;
-  } catch {
-    return null;
-  }
-}
 
 export function CheckoutSteps({ current }) {
   const steps = ['Shopping Cart', 'Checkout Details', 'Order Complete'];
@@ -24,11 +13,11 @@ export function CheckoutSteps({ current }) {
 export default function Checkout({ cartItems, setCartItems, setCart, directItems, setDirectItems }) {
   const isDirectCheckout = directItems !== null;
   const checkoutItems = isDirectCheckout ? directItems : cartItems;
-  const [complete, setComplete] = useState(restoreOrderChat);
-  const [stage, setStage] = useState(() => restoreOrderChat() ? 'complete' : isDirectCheckout ? 'details' : 'cart');
+  const [complete, setComplete] = useState(null);
+  const [stage, setStage] = useState(isDirectCheckout ? 'details' : 'cart');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [chatPersistenceWarning, setChatPersistenceWarning] = useState('');
+  const [copied, setCopied] = useState(false);
   const [form, setForm] = useState({
     email:'', firstName:'', lastName:'', company:'', address:'', apartment:'', city:'', state:'', zip:'', country:'United States', phone:'', paymentMethod:'paypal', saveAddress:false,
   });
@@ -67,14 +56,8 @@ export default function Checkout({ cartItems, setCartItems, setCart, directItems
       });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Unable to place order');
       const { chatToken = '', ...order } = await response.json();
-      const orderChat = { order, conversationToken: chatToken };
-      try {
-        sessionStorage.setItem(orderChatStorageKey, JSON.stringify(orderChat));
-        window.dispatchEvent(new Event('bowlerx-order-chat-updated'));
-      } catch {
-        setChatPersistenceWarning('This conversation may not be available if you leave or refresh this page.');
-      }
-      setComplete(orderChat);
+      try { sessionStorage.removeItem('bowlerx-active-order-chat'); } catch {}
+      setComplete(order);
       if (isDirectCheckout) setDirectItems(null);
       else { setCartItems([]); setCart(0); }
       setStage('complete');
@@ -82,13 +65,27 @@ export default function Checkout({ cartItems, setCartItems, setCart, directItems
     finally { setSubmitting(false); }
   }
 
+  async function copyOrderCode(code) {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const input = document.createElement('textarea');
+      input.value = code;
+      input.setAttribute('readonly', '');
+      input.style.position = 'absolute';
+      input.style.left = '-9999px';
+      document.body.appendChild(input);
+      input.select();
+      try { document.execCommand('copy'); setCopied(true); window.setTimeout(() => setCopied(false), 2000); } catch {}
+      document.body.removeChild(input);
+    }
+  }
+
   if (stage === 'complete' && complete) {
-    const orderNumber = `#${String(complete.order._id).slice(-8).toUpperCase()}`;
-    const leaveOrderChat = () => {
-      window.dispatchEvent(new Event('bowlerx-order-chat-updated'));
-      location.hash = '';
-    };
-    return <main className="checkout-page checkout-chat-page"><div className="checkout-brand"><button onClick={leaveOrderChat}><SiteLogo className="checkout-logo" /></button></div><CheckoutSteps current={2}/><div className="order-chat-screen" id="order-chat-screen"><div className="order-chat-screen-head"><span className="order-chat-badge">ORDER PLACED</span><h1>Order chat</h1><p>Your order <b>{orderNumber}</b> was placed successfully. You can see your order below and chat with BowlersX Support — our team will reply here and you can reply anytime.</p></div>{chatPersistenceWarning && <p className="order-chat-unavailable">{chatPersistenceWarning}</p>}{complete.conversationToken ? <OrderChat order={complete.order} conversationToken={complete.conversationToken} /> : <div className="order-chat-fallback"><p className="order-chat-unavailable">Your order is confirmed, but a secure chat session could not be started. Contact support with order number {orderNumber}.</p></div>}<div className="order-chat-actions"><button className="order-chat-return" onClick={leaveOrderChat}>CONTINUE SHOPPING</button><button className="order-chat-open-chat" type="button" onClick={() => { window.dispatchEvent(new Event('bowlerx-order-chat-updated')); location.hash = '#checkout'; }}>OPEN CHAT</button></div></div></main>;
+    const orderCode = String(complete._id || '').slice(-8).toUpperCase();
+    return <main className="checkout-page"><div className="checkout-brand"><button onClick={() => { location.hash = ''; }}><SiteLogo className="checkout-logo" /></button></div><CheckoutSteps current={2}/><div className="order-complete order-code-complete"><div className="complete-icon">✓</div><span>ORDER PLACED SUCCESSFULLY</span><h1>Thank you for your order!</h1><p className="complete-email">Copy your order code and paste to livechat to proceed.</p><div className="order-code-box"><small>ORDER CODE</small><strong>{orderCode}</strong></div><button type="button" className="copy-order-code" onClick={() => copyOrderCode(orderCode)}>{copied ? <Check /> : <Copy />} {copied ? 'COPIED' : 'COPY ORDER CODE'}</button><p className="order-code-hint">Copy your order code and paste to livechat to proceed.</p><button type="button" onClick={() => { location.hash = ''; }}>CONTINUE SHOPPING</button></div></main>;
   }
   const shippingLabel = !checkoutItems.length ? 'FREE' : (shippingReady ? (shippingCost ? money(shippingCost) : 'FREE') : 'Calculated after shipping address');
   const orderSummary = (

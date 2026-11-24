@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, ShoppingCart, Menu, X, ChevronRight, ChevronLeft, Star, Truck, ShieldCheck, Phone, Mail, MapPin, MessageCircle } from 'lucide-react';
+import { Search, ShoppingCart, Menu, X, ChevronRight, ChevronLeft, Star, Truck, ShieldCheck, Phone, Mail, MapPin } from 'lucide-react';
 import SiteLogo from './SiteLogo.jsx';
 import '../contact.css';
 import { apiUrl } from '../api.js';
@@ -16,7 +16,7 @@ export function productWeightOptions(product) {
   return isBowlingBall(product) ? bowlingBallWeights : product.weightOptions || [];
 }
 
-function Header({ cart, onSearch, search, settings, hasActiveOrderChat, onOpenOrderChat }) {
+function Header({ cart, onSearch, search, settings }) {
   const [open, setOpen] = useState(false);
   return <div className="site-header-sticky">
     {(settings.phone || settings.email || settings.address) && <div className="store-contact-bar">
@@ -28,7 +28,7 @@ function Header({ cart, onSearch, search, settings, hasActiveOrderChat, onOpenOr
       <button className="brand" onClick={() => { location.hash = ''; }}><SiteLogo className="header-logo" /></button>
       <button className="menu-trigger" onClick={() => setOpen(!open)}>{open ? <X/> : <Menu/>}<span>MENU</span></button>
       <form className="search navbar-search" onSubmit={(event) => event.preventDefault()}><Search/><input aria-label="Search" value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search bowling balls, shoes, bags and accessories"/><button type="submit" aria-label="Submit search"><Search/></button></form>
-      <div className="actions"><button type="button" className={`icon nav-order-chat${hasActiveOrderChat ? ' has-active-chat' : ''}`} aria-label="Open order chat" title={hasActiveOrderChat ? 'Open order chat' : 'Order chat'} onClick={onOpenOrderChat}><MessageCircle/><small>CHAT</small></button><button className="icon cart" aria-label="Cart" onClick={() => { location.hash = '#checkout'; }}><ShoppingCart/><b>{cart}</b></button></div>
+      <div className="actions"><button className="icon cart" aria-label="Cart" onClick={() => { location.hash = '#checkout'; }}><ShoppingCart/><b>{cart}</b></button></div>
     </header>
     <nav className={open ? 'open bowling-nav-menu' : 'bowling-nav-menu'}><button onClick={() => location.hash = '#category/Bowling Balls'}>Bowling Balls <ChevronRight/></button><button onClick={() => location.hash = '#category/Accessories'}>Accessories <ChevronRight/></button><button onClick={() => location.hash = '#category/Accessories/Bowling Bags'}>Bowling Bags <ChevronRight/></button><button onClick={() => location.hash = '#category/Accessories/Bowling Shoes'}>Bowling Shoes <ChevronRight/></button><button onClick={() => location.hash = '#new-arrivals'}>New Arrivals</button><button onClick={() => location.hash = '#category/Accessories'}>Deals</button></nav>
   </div>;
@@ -164,7 +164,7 @@ function CatalogSection({ title, eyebrow, products, setCart, sale, showViewAll =
   return <section className="catalog"><div className="section-title"><div><span>{eyebrow}</span><h2>{title}</h2></div>{showViewAll && <button>VIEW ALL <ChevronRight/></button>}</div><div className="product-grid">{products.map((product) => <ProductCard key={product._id} product={product} sale={sale} add={() => setCart((value) => value + 1)} quickBuyItem={quickBuySelection[product._id]} onQuickBuyToggle={onQuickBuyToggle} onQuickBuyWeightChange={onQuickBuyWeightChange} onMoreInfo={onMoreInfo} />)}</div></section>;
 }
 
-export default function Storefront({ setCart, cartCount, quickBuySelection, onQuickBuyToggle, onQuickBuyWeightChange, onQuickBuy, onClearQuickBuy, hasActiveOrderChat, onOpenOrderChat }) {
+export default function Storefront({ setCart, cartCount, quickBuySelection, onQuickBuyToggle, onQuickBuyWeightChange, onQuickBuy, onClearQuickBuy }) {
   const [slide, setSlide] = useState(0);
   const [search, setSearch] = useState('');
   const [data, setData] = useState({ homepage: [], newArrivals: [], featured: [], bestSellers: [], accessories: [], balls: [], shoes: [], bags: [], brands: [], categories: [] });
@@ -197,7 +197,7 @@ export default function Storefront({ setCart, cartCount, quickBuySelection, onQu
   ];
   const heroEnabled = homeSection('hero')?.enabled !== false;
 
-  return <><Header cart={cartCount} onSearch={setSearch} search={search} settings={settings} hasActiveOrderChat={hasActiveOrderChat} onOpenOrderChat={onOpenOrderChat} /><main>
+  return <><Header cart={cartCount} onSearch={setSearch} search={search} settings={settings} /><main>
     {heroEnabled && <section className="hero"><div className="hero-copy"><span>NEW SEASON COLLECTION</span><h1>{slides[slide].title}</h1><p>{slides[slide].subtitle}</p><button onClick={() => { if (slides[slide].buttonUrl) location.hash = slides[slide].buttonUrl; }}>{slides[slide].buttonText || 'SHOP NOW'} <ChevronRight/></button></div>{slides[slide].imageUrl ? <div className="hero-orbit"><img className="hero-banner-image" src={slides[slide].imageUrl} alt={slides[slide].title}/></div> : <div className="hero-orbit"><div className="giant-ball"><div className="ball-holes"><i/><i/><i/></div></div></div>}<button className="slider prev" onClick={() => setSlide(slide ? 0 : 1)}><ChevronLeft/></button><button className="slider next" onClick={() => setSlide(slide ? 0 : 1)}><ChevronRight/></button></section>}
     <section className="trust"><span><Truck/> FAST, INSURED SHIPPING</span><span><ShieldCheck/> 100% FACTORY FIRST QUALITY</span><span><Star/> PBA & PWBA TRUSTED</span></section>
     {search && <CatalogSection title="Search results" eyebrow="STORE SEARCH" products={searchResults} setCart={setCart} showViewAll={false} quickBuySelection={quickBuySelection} onQuickBuyToggle={onQuickBuyToggle} onQuickBuyWeightChange={onQuickBuyWeightChange} onMoreInfo={(product) => setInfoProductId(product._id)} />}

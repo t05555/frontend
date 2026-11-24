@@ -4,17 +4,6 @@ import Admin from './components/Admin.jsx';
 import Checkout from './components/Checkout.jsx';
 import { apiUrl } from './api.js';
 
-const orderChatStorageKey = 'bowlerx-active-order-chat';
-
-function readActiveOrderChat() {
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(orderChatStorageKey) || 'null');
-    return saved?.order?._id ? saved : null;
-  } catch {
-    return null;
-  }
-}
-
 function CollectionPage({ path, setCart, quickBuySelection, onQuickBuyToggle, onQuickBuyWeightChange, onQuickBuy, onClearQuickBuy }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +70,6 @@ export default function App() {
   });
   const [quickBuySelection, setQuickBuySelection] = useState({});
   const [directCheckoutItems, setDirectCheckoutItems] = useState(null);
-  const [activeOrderChat, setActiveOrderChat] = useState(readActiveOrderChat);
   const previousHash = useRef(location.hash);
   function toggleQuickBuy(product, weight, selected, quantity = 1) {
     setQuickBuySelection((current) => {
@@ -110,22 +98,18 @@ export default function App() {
     location.hash = '#checkout';
   }
   useEffect(() => {
-    const syncActiveOrderChat = () => setActiveOrderChat(readActiveOrderChat());
     const onHash = () => {
       const nextHash = location.hash;
       if (previousHash.current === '#checkout' && nextHash !== '#checkout') setDirectCheckoutItems(null);
       previousHash.current = nextHash;
       setHash(nextHash);
-      syncActiveOrderChat();
     };
     const onCartAdd = (event) => setCartItems((items) => [...items, event.detail]);
     addEventListener('hashchange', onHash);
     addEventListener('bowlerx-cart-add', onCartAdd);
-    addEventListener('bowlerx-order-chat-updated', syncActiveOrderChat);
     return () => {
       removeEventListener('hashchange', onHash);
       removeEventListener('bowlerx-cart-add', onCartAdd);
-      removeEventListener('bowlerx-order-chat-updated', syncActiveOrderChat);
     };
   }, []);
   useEffect(() => {
@@ -155,21 +139,11 @@ export default function App() {
   useEffect(() => {
     sessionStorage.setItem('bowlerx-cart-count', String(cart));
   }, [cart]);
-  const openOrderChat = () => {
-    const active = readActiveOrderChat();
-    if (!active) {
-      window.alert('No active order chat yet. Place an order to chat with support, or reopen an existing order chat from this device.');
-      return;
-    }
-    setActiveOrderChat(active);
-    location.hash = '#checkout';
-  };
-
   if (hash === '#admin') {
     return <Admin />;
   }
   if (hash.startsWith('#product/')) return <ProductPage id={hash.slice(9)} setCart={setCart} quickBuySelection={quickBuySelection} onQuickBuyToggle={toggleQuickBuy} onQuickBuyWeightChange={updateQuickBuyWeight} onQuickBuy={startQuickBuy} onClearQuickBuy={() => setQuickBuySelection({})} />;
   if (hash.startsWith('#brand/') || hash.startsWith('#category/') || hash === '#new-arrivals') return <CollectionPage path={hash} setCart={setCart} quickBuySelection={quickBuySelection} onQuickBuyToggle={toggleQuickBuy} onQuickBuyWeightChange={updateQuickBuyWeight} onQuickBuy={startQuickBuy} onClearQuickBuy={() => setQuickBuySelection({})} />;
   if (hash === '#checkout' || hash === '#cart') return <Checkout cartItems={cartItems} setCartItems={setCartItems} setCart={setCart} directItems={directCheckoutItems} setDirectItems={setDirectCheckoutItems} />;
-  return <Storefront setCart={setCart} cartCount={cart} quickBuySelection={quickBuySelection} onQuickBuyToggle={toggleQuickBuy} onQuickBuyWeightChange={updateQuickBuyWeight} onQuickBuy={startQuickBuy} onClearQuickBuy={() => setQuickBuySelection({})} hasActiveOrderChat={!!activeOrderChat} onOpenOrderChat={openOrderChat} />;
+  return <Storefront setCart={setCart} cartCount={cart} quickBuySelection={quickBuySelection} onQuickBuyToggle={toggleQuickBuy} onQuickBuyWeightChange={updateQuickBuyWeight} onQuickBuy={startQuickBuy} onClearQuickBuy={() => setQuickBuySelection({})} />;
 }

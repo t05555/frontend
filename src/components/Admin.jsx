@@ -1,14 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { LayoutDashboard, Boxes, CircleDot, Package, Tag, Layers, ShoppingBag, Users, Warehouse, House, Settings, Search, Plus, Edit3, Trash2, LogOut, X, Upload, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, Boxes, CircleDot, Package, Tag, Layers, ShoppingBag, Users, Warehouse, House, Settings, Search, Plus, Edit3, Trash2, LogOut, X, Upload } from 'lucide-react';
 import SiteLogo from './SiteLogo.jsx';
-import OrderChat from './OrderChat.jsx';
-import AdminOrderMessages from './AdminOrderMessages.jsx';
 import { apiUrl } from '../api.js';
 
 const sections = [
   ['Dashboard Overview', LayoutDashboard], ['All Products', Boxes], ['Bowling Balls', CircleDot],
   ['Bowling Shoes', ShoppingBag], ['Bowling Bags', Package], ['Accessories', ShoppingBag],
-  ['New Arrivals', Tag], ['Brands', Tag], ['Categories', Layers], ['Orders', Package], ['Order Messages', MessageCircle], ['Customers', Users],
+  ['New Arrivals', Tag], ['Brands', Tag], ['Categories', Layers], ['Orders', Package], ['Customers', Users],
   ['Inventory', Warehouse], ['Homepage Management', House], ['Website Settings', Settings],
 ];
 const navigationGroups = [
@@ -170,8 +168,6 @@ export default function Admin() {
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
   const [ordersError, setOrdersError] = useState('');
-  const [orderMessagesUnread, setOrderMessagesUnread] = useState(0);
-  const [selectedOrder, setSelectedOrder] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
@@ -194,7 +190,6 @@ export default function Admin() {
         api('/api/admin/categories', {}, token), api('/api/admin/orders', {}, token).catch(() => []), api('/api/admin/customers', {}, token).catch(() => []),
       ]);
       setStats(statsData); setProducts(productsData); setBrands(brandsData); setCategories(categoriesData); setOrders(ordersData); setCustomers(customersData);
-      try { const unread = await api('/api/admin/order-chats/unread', {}, token); setOrderMessagesUnread(Number(unread?.adminUnread || 0)); } catch {}
     } catch { sessionStorage.removeItem('bowlerx-admin-token'); setToken(''); }
   }
   useEffect(() => { load(); }, [token]);
@@ -218,9 +213,7 @@ export default function Admin() {
         requestPending = false;
       }
     };
-    const refreshUnread = async () => { try { const unread = await api('/api/admin/order-chats/unread', {}, token); if (active) setOrderMessagesUnread(Number(unread?.adminUnread || 0)); } catch {} };
-    refreshUnread();
-    const interval = window.setInterval(() => { refreshOrders(); refreshUnread(); }, 8000);
+    const interval = window.setInterval(refreshOrders, 8000);
     return () => {
       active = false;
       window.clearInterval(interval);
@@ -279,7 +272,7 @@ export default function Admin() {
       <aside>
         <button className="mobile-menu-close" aria-label="Close navigation" onClick={() => setMenuOpen(false)}>×</button>
         <button className="brand admin-brand" onClick={() => { location.hash = ''; }}><SiteLogo className="sidebar-logo" /><strong>BOWLERX<small>ADMIN</small></strong></button>
-        <nav>{navigationGroups.map((group) => <div className="nav-group" key={group.title}><span className="nav-group-label">{group.title}</span>{group.sections.map(([name, Icon]) => <button key={name} className={active === name ? 'active' : ''} onClick={() => { setActive(name); setMenuOpen(false); }}><Icon /> <span>{name}</span>{name === 'Orders' && stats.orderCount > 0 && <b className="mobile-nav-badge">{stats.orderCount}</b>}{name === 'Order Messages' && orderMessagesUnread > 0 && <b className="mobile-nav-badge">{orderMessagesUnread}</b>}</button>)}</div>)}</nav>
+        <nav>{navigationGroups.map((group) => <div className="nav-group" key={group.title}><span className="nav-group-label">{group.title}</span>{group.sections.map(([name, Icon]) => <button key={name} className={active === name ? 'active' : ''} onClick={() => { setActive(name); setMenuOpen(false); }}><Icon /> <span>{name}</span>{name === 'Orders' && stats.orderCount > 0 && <b className="mobile-nav-badge">{stats.orderCount}</b>}</button>)}</div>)}</nav>
         <div className="sidebar-account-label">ACCOUNT</div>
         <button className="logout-button" onClick={logout}><LogOut /> <span>Sign out</span></button>
         <div className="sidebar-footer"><div className={systemStatus.mongoDb ? 'connected' : 'disconnected'}><i/><span>{sidebarStatus}</span></div><button type="button" onClick={() => { location.hash = ''; setMenuOpen(false); }}>View storefront <b>↗</b></button></div>
@@ -294,14 +287,12 @@ export default function Admin() {
 
   {active === 'Brands' && <ManagementList title="Brands" items={brands} token={token} type="brands" onRefresh={load} />}
   {active === 'Categories' && <ManagementList title="Categories" items={categories} token={token} type="categories" onRefresh={load} />}
-  {active === 'Orders' && <>{ordersError && <p className="order-chat-error" role="alert">Could not refresh orders: {ordersError}</p>}<div className="admin-table"><table><thead><tr><th>Order</th><th>Customer / delivery</th><th>Total / payment</th><th>Status</th><th>Conversation</th><th>Date</th></tr></thead><tbody>{orders.map((order) => <tr key={order._id}><td>#{order._id.slice(-6)}</td><td><strong>{order.customer}</strong><small>{order.email}</small>{order.phone && <small>{order.phone}</small>}<small>{[order.shippingAddress?.address, order.shippingAddress?.apartment, order.shippingAddress?.city, order.shippingAddress?.state, order.shippingAddress?.zip, order.shippingAddress?.country].filter(Boolean).join(', ')}</small></td><td>${Number(order.total).toFixed(2)}<small>Contact customer to arrange payment</small></td><td><select value={order.status} onChange={async (e) => { await api(`/api/admin/orders/${order._id}/status`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ status:e.target.value }) }, token); await load(); }}><option>Processing</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option></select></td><td><button className="order-chat-action" type="button" onClick={() => setSelectedOrder(order)}><MessageCircle />{order.chatMessageCount ? `Chat (${order.chatMessageCount})` : 'Open chat'}</button>{order.latestMessage && <small className="order-list-message">{order.latestMessage.sender === 'customer' ? 'Customer' : 'Admin'}: {order.latestMessage.text}</small>}</td><td>{new Date(order.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table>{orders.length === 0 && <div className="empty-state">No orders yet</div>}</div></>}
-  {active === 'Order Messages' && <AdminOrderMessages token={token} />}
+  {active === 'Orders' && <>{ordersError && <p className="order-chat-error" role="alert">Could not refresh orders: {ordersError}</p>}<div className="admin-table"><table><thead><tr><th>Order Code</th><th>Customer / delivery</th><th>Total / payment</th><th>Status</th><th>Date</th></tr></thead><tbody>{orders.map((order) => <tr key={order._id}><td><strong>#{String(order._id).slice(-8).toUpperCase()}</strong><small>{String(order._id)}</small></td><td><strong>{order.customer}</strong><small>{order.email}</small>{order.phone && <small>{order.phone}</small>}<small>{[order.shippingAddress?.address, order.shippingAddress?.apartment, order.shippingAddress?.city, order.shippingAddress?.state, order.shippingAddress?.zip, order.shippingAddress?.country].filter(Boolean).join(', ')}</small></td><td>${Number(order.total).toFixed(2)}<small>Contact customer to arrange payment</small></td><td><select value={order.status} onChange={async (e) => { await api(`/api/admin/orders/${order._id}/status`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ status:e.target.value }) }, token); await load(); }}><option>Processing</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option></select></td><td>{new Date(order.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table>{orders.length === 0 && <div className="empty-state">No orders yet</div>}</div></>}
   {active === 'Customers' && <div className="admin-table"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th></tr></thead><tbody>{customers.map((customer) => <tr key={customer._id}><td>{customer.name}</td><td>{customer.email}</td><td>{customer.phone || '—'}</td><td>{customer.active ? 'Active' : 'Inactive'}</td></tr>)}</tbody></table>{customers.length === 0 && <div className="empty-state">No customer records yet</div>}</div>}
   {active === 'Homepage Management' && <HomepageManager active={active} token={token} />}
   {active === 'Website Settings' && <WebsiteSettings token={token} />}
       </section>
       {formOpen && <ProductForm product={editing} brands={brands} categories={categories} token={token} onClose={() => setFormOpen(false)} onSaved={async () => { setFormOpen(false); await load(); }} />}
-      {selectedOrder && <div className="modal-backdrop order-chat-backdrop" role="presentation" onClick={() => setSelectedOrder(null)}><div role="dialog" aria-modal="true" aria-label="Order conversation" onClick={(event) => event.stopPropagation()}><OrderChat order={orders.find((order) => order._id === selectedOrder._id) || selectedOrder} adminToken={token} onClose={() => setSelectedOrder(null)} /></div></div>}
     </div>
   );
 }

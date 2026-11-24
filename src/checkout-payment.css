@@ -134,3 +134,13 @@
 .order-chat-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
 .order-chat-actions .order-chat-return { margin: 0; }
 .order-chat-open-chat { display: inline-flex; align-items: center; justify-content: center; height: 44px; border: 1px solid #111827; background: #fff; color: #111827; padding: 0 18px; font-size: 11px; font-weight: 800; cursor: pointer; }
+
+.order-code-complete{max-width:560px}
+.order-code-complete .complete-email{margin-bottom:14px}
+.order-code-box{display:grid;gap:6px;justify-items:center;margin:14px auto 16px;padding:16px 18px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;max-width:360px}
+.order-code-box small{font-size:11px;font-weight:700;letter-spacing:.08em;color:#6b7280}
+.order-code-box strong{font:800 34px/1 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#111827}
+.copy-order-code{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border:0;border-radius:4px;background:#111827;color:#fff;font-size:11px;font-weight:800;cursor:pointer}
+.copy-order-code svg{width:16px;height:16px}
+.order-code-hint{margin:14px 0 18px;color:#374151;font-size:14px;font-weight:600}
+@media(max-width:600px){.order-code-box strong{font-size:28px}}
