@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import Storefront, { ProductCard, QuickBuyBar, isBowlingBall, productWeightOptions } from './components/Storefront.jsx';
+import Storefront, { ProductCard, QuickBuyBar, ProductInfoModal, isBowlingBall, productWeightOptions } from './components/Storefront.jsx';
 import Admin from './components/Admin.jsx';
 import Checkout from './components/Checkout.jsx';
 import { apiUrl } from './api.js';
@@ -18,6 +18,7 @@ function readActiveOrderChat() {
 function CollectionPage({ path, setCart, quickBuySelection, onQuickBuyToggle, onQuickBuyWeightChange, onQuickBuy, onClearQuickBuy }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [infoProductId, setInfoProductId] = useState('');
   useEffect(() => {
     let query = '';
     if (path.startsWith('#brand/')) query = `brand=${encodeURIComponent(decodeURIComponent(path.slice(7)))}`;
@@ -28,7 +29,7 @@ function CollectionPage({ path, setCart, quickBuySelection, onQuickBuyToggle, on
     } else if (path === '#new-arrivals') query = 'newArrival=true';
     fetch(apiUrl(`/api/catalog${query ? `?${query}` : ''}`)).then((response) => response.ok ? response.json() : []).then(setProducts).finally(() => setLoading(false));
   }, [path]);
-  return <><main className="collection-page"><button className="back-button" onClick={() => { location.hash = ''; }}>← Back to store</button><h1>{path === '#new-arrivals' ? 'New Arrivals' : decodeURIComponent(path.split('/').pop())}</h1>{loading ? <p>Loading products...</p> : products.length ? <div className="product-grid collection-grid">{products.map((product) => <ProductCard key={product._id} product={product} add={() => setCart((value) => value + 1)} quickBuyItem={quickBuySelection[product._id]} onQuickBuyToggle={onQuickBuyToggle} onQuickBuyWeightChange={onQuickBuyWeightChange} />)}</div> : <div className="empty-state">No published products found.</div>}</main><QuickBuyBar selection={quickBuySelection} onBuy={onQuickBuy} onClear={onClearQuickBuy} /></>;
+  return <><main className="collection-page"><button className="back-button" onClick={() => { location.hash = ''; }}>← Back to store</button><h1>{path === '#new-arrivals' ? 'New Arrivals' : decodeURIComponent(path.split('/').pop())}</h1>{loading ? <p>Loading products...</p> : products.length ? <div className="product-grid collection-grid">{products.map((product) => <ProductCard key={product._id} product={product} add={() => setCart((value) => value + 1)} quickBuyItem={quickBuySelection[product._id]} onQuickBuyToggle={onQuickBuyToggle} onQuickBuyWeightChange={onQuickBuyWeightChange} onMoreInfo={(item) => setInfoProductId(item._id)} />)}</div> : <div className="empty-state">No published products found.</div>}</main><QuickBuyBar selection={quickBuySelection} onBuy={onQuickBuy} onClear={onClearQuickBuy} />{infoProductId && <ProductInfoModal productId={infoProductId} onClose={() => setInfoProductId('')} />}</>;
 }
 
 function ProductPage({ id, setCart, quickBuySelection, onQuickBuyToggle, onQuickBuyWeightChange, onQuickBuy, onClearQuickBuy }) {
