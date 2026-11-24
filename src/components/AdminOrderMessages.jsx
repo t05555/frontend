@@ -3,6 +3,7 @@ import { MessageCircle, Search, RefreshCw } from 'lucide-react';
 import OrderChat from './OrderChat.jsx';
 import { apiUrl } from '../api.js';
 import { createChatSocket } from '../socket.js';
+import { playChatNotification } from '../utils/chatNotification.js';
 
 export default function AdminOrderMessages({ token }) {
   const [inbox, setInbox] = useState({ conversations: [], total: 0, page: 1, limit: 20 });
@@ -13,6 +14,7 @@ export default function AdminOrderMessages({ token }) {
   const [unread, setUnread] = useState({ adminUnread: 0, adminUnreadConversations: 0 });
   const [connected, setConnected] = useState(false);
   const socketRef = useRef(null);
+  const lastAdminUnreadRef = useRef(null);
 
   async function loadInbox(opts = {}) {
     const q = typeof opts.search === 'string' ? opts.search : search;
@@ -26,6 +28,11 @@ export default function AdminOrderMessages({ token }) {
       const inboxData = await inboxRes.json().catch(() => ({}));
       const unreadData = await unreadRes.json().catch(() => ({}));
       if (!inboxRes.ok) throw new Error(inboxData.error || 'Unable to load order messages');
+      const nextUnread = Number(unreadData.adminUnread || 0);
+      if (lastAdminUnreadRef.current !== null && nextUnread > lastAdminUnreadRef.current) {
+        playChatNotification();
+      }
+      lastAdminUnreadRef.current = nextUnread;
       setInbox(inboxData);
       setUnread({ adminUnread: unreadData.adminUnread || 0, adminUnreadConversations: unreadData.adminUnreadConversations || 0 });
       setError('');
@@ -76,9 +83,28 @@ export default function AdminOrderMessages({ token }) {
     };
   }, [token]);
 
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!selected?.orderId) { setSelectedOrderDetails(null); return undefined; }
+    (async () => {
+      try {
+        const res = await fetch(apiUrl('/api/admin/orders'), { headers: { Authorization: `Bearer ${token}` } });
+        const orders = await res.json().catch(() => []);
+        if (!active || !res.ok || !Array.isArray(orders)) return;
+        const match = orders.find((o) => String(o._id) === String(selected.orderId));
+        if (match) setSelectedOrderDetails(match);
+      } catch {
+        // keep summary order if details cannot be loaded
+      }
+    })();
+    return () => { active = false; };
+  }, [selected?.orderId, token]);
+
   const selectedOrder = useMemo(() => {
     if (!selected) return null;
-    return {
+    const base = {
       _id: selected.orderId,
       customer: selected.customerName,
       email: selected.customerEmail,
@@ -87,7 +113,11 @@ export default function AdminOrderMessages({ token }) {
       total: selected.orderTotal,
       createdAt: selected.orderCreatedAt,
     };
-  }, [selected]);
+    if (selectedOrderDetails && String(selectedOrderDetails._id) === String(selected.orderId)) {
+      return { ...base, ...selectedOrderDetails, _id: selected.orderId };
+    }
+    return base;
+  }, [selected, selectedOrderDetails]);
 
   return (
     <section className="admin-order-messages">

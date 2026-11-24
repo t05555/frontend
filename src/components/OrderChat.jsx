@@ -2,6 +2,7 @@
 import { MessageCircle, Send, X, WifiOff } from 'lucide-react';
 import { apiUrl } from '../api.js';
 import { createChatSocket } from '../socket.js';
+import { playChatNotification } from '../utils/chatNotification.js';
 
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 
@@ -41,20 +42,41 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
   const typingTimeout = useRef(null);
   const stopTypingTimeout = useRef(null);
   const lastTypingSent = useRef(0);
+  const seenMessageKeysRef = useRef(new Set());
+  const historyReadyRef = useRef(false);
   const orderItems = Array.isArray(order?.items) ? order.items : [];
 
   const legacyEndpoint = isAdmin ? `/api/admin/orders/${orderId}/messages` : `/api/orders/${orderId}/messages`;
 
-  function mergeMessages(next) {
+  function getMessageKey(m) {
+    return m?._id || m?.clientMessageId || `${m?.sender || m?.senderRole}-${m?.createdAt}-${m?.text || m?.message}`;
+  }
+
+  function mergeMessages(next, { notifyIncoming = true } = {}) {
     const normalized = (next || []).map(toDisplayMessage);
     setMessages((current) => {
       const byKey = new Map();
       [...current, ...normalized].forEach((m) => {
-        const key = m._id || m.clientMessageId || `${m.sender || m.senderRole}-${m.createdAt}-${m.text || m.message}`;
+        const key = getMessageKey(m);
         if (!key) return;
         byKey.set(key, { ...byKey.get(key), ...m });
       });
-      return [...byKey.values()].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      const merged = [...byKey.values()].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      if (historyReadyRef.current && notifyIncoming) {
+        const myRole = isAdmin ? 'admin' : 'customer';
+        const hasNewIncoming = merged.some((m) => {
+          const key = getMessageKey(m);
+          if (!key || seenMessageKeysRef.current.has(key)) return false;
+          const role = m.senderRole || m.sender;
+          return role && role !== myRole;
+        });
+        if (hasNewIncoming) playChatNotification();
+      }
+      merged.forEach((m) => {
+        const key = getMessageKey(m);
+        if (key) seenMessageKeysRef.current.add(key);
+      });
+      return merged;
     });
   }
 
@@ -108,10 +130,14 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
     setMessages([]);
     setConversationId('');
     setError('');
+    seenMessageKeysRef.current = new Set();
+    historyReadyRef.current = false;
     (async () => {
       if (!active) return;
-      const result = await loadConversation();
-      if (!active || !authToken || !orderId) return;
+      await loadConversation();
+      if (!active) return;
+      historyReadyRef.current = true;
+      if (!authToken || !orderId) return;
       const socket = createChatSocket(authToken);
       socketRef.current = socket;
       if (!socket) return;
@@ -122,7 +148,8 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
         socket.emit('chat:join', { orderId }, (ack) => {
           if (ack?.ok) {
             if (ack.conversationId) setConversationId(ack.conversationId);
-            if (Array.isArray(ack.messages)) mergeMessages(ack.messages);
+            if (Array.isArray(ack.messages)) mergeMessages(ack.messages, { notifyIncoming: false });
+            historyReadyRef.current = true;
             if (ack.conversationId) {
               markRead(ack.conversationId);
               socket.emit('chat:read', { conversationId: ack.conversationId });
@@ -262,6 +289,15 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
   const canSend = Boolean(message.trim() && !sending && authToken);
   const typingLabel = typingRole ? (typingRole === 'admin' ? 'BowlersX Support is typing…' : 'Customer is typing…') : '';
 
+  const shipping = order?.shippingAddress || {};
+  const customerName = [shipping.firstName, shipping.lastName].filter(Boolean).join(' ').trim() || order?.customer || '';
+  const addressParts = [shipping.address, shipping.apartment, [shipping.city, shipping.state].filter(Boolean).join(', '), shipping.zip, shipping.country].map((part) => String(part || '').trim()).filter(Boolean);
+  const paymentLabels = { paypal: 'PayPal', cashapp: 'Cash App', chime: 'Chime', zelle: 'Zelle', card: 'Card', manual: 'Manual' };
+  const paymentMethod = paymentLabels[order?.paymentMethod] || order?.paymentMethod || '';
+  const orderDate = order?.createdAt && !Number.isNaN(new Date(order.createdAt).getTime()) ? new Date(order.createdAt).toLocaleString() : '';
+  const itemCount = orderItems.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
+  const company = String(shipping.company || '').trim();
+
   return (
     <section className={`order-chat ${isAdmin ? 'order-chat-admin' : 'order-chat-customer'}`} aria-label="Order conversation">
       <header className="order-chat-header">
@@ -284,6 +320,19 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
           <strong>Order #{String(order?._id || '').slice(-8).toUpperCase()}</strong>
           {order?.status && <span className="order-chat-status">{order.status}</span>}
         </div>
+        {(customerName || order?.email || order?.phone || paymentMethod || orderDate || addressParts.length > 0) && (
+          <dl className="order-chat-order-details">
+            {customerName && <><dt>Name</dt><dd>{customerName}</dd></>}
+            {order?.email && <><dt>Email</dt><dd>{order.email}</dd></>}
+            {order?.phone && <><dt>Phone</dt><dd>{order.phone}</dd></>}
+            {company && <><dt>Company</dt><dd>{company}</dd></>}
+            {paymentMethod && <><dt>Payment</dt><dd>{paymentMethod}</dd></>}
+            {addressParts.length > 0 && <><dt>Shipping address</dt><dd>{addressParts.join(', ')}</dd></>}
+            {orderDate && <><dt>Placed</dt><dd>{orderDate}</dd></>}
+            {order?.status && <><dt>Status</dt><dd>{order.status}</dd></>}
+            {itemCount > 0 && <><dt>Items</dt><dd>{itemCount}</dd></>}
+          </dl>
+        )}
         {orderItems.length > 0 ? (
           <ul className="order-chat-items">
             {orderItems.map((item, index) => (
