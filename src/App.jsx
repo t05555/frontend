@@ -155,8 +155,12 @@ export default function App() {
     sessionStorage.setItem('bowlerx-cart-count', String(cart));
   }, [cart]);
   const openOrderChat = () => {
-    if (!readActiveOrderChat()) return;
-    setActiveOrderChat(readActiveOrderChat());
+    const active = readActiveOrderChat();
+    if (!active) {
+      window.alert('No active order chat yet. Place an order to chat with support, or reopen an existing order chat from this device.');
+      return;
+    }
+    setActiveOrderChat(active);
     location.hash = '#checkout';
   };
 

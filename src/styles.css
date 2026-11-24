@@ -7,7 +7,7 @@
 .bowling-nav .navbar-search{display:flex!important;flex:1 1 520px!important;width:auto!important;min-width:220px!important;max-width:650px!important;height:44px!important;margin:0!important;opacity:1!important;visibility:visible!important}.bowling-nav .navbar-search input{display:block!important;min-width:0!important}.bowling-nav .navbar-search>svg{display:block!important;flex:none!important;color:#64748b!important}@media(max-width:600px){.bowling-nav .navbar-search{flex:1 1 120px!important;min-width:100px!important}.bowling-nav .navbar-search input{font-size:11px!important}}
 
 .bowling-nav .actions .nav-order-chat{position:relative}
-.bowling-nav .actions .nav-order-chat::after{content:'';position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:#22c55e;border:1px solid #1c2d42}
+.bowling-nav .actions .nav-order-chat.has-active-chat::after{content:'';position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:#22c55e;border:1px solid #1c2d42}
 @media(max-width:600px){.bowling-nav .actions .nav-order-chat small{display:none}}
 
 .site-header-sticky{position:sticky;top:0;z-index:1000;background:#fff}
