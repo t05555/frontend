@@ -161,11 +161,13 @@ export default function OrderChat({ order, conversationToken, adminToken, onClos
         <label className="visually-hidden" htmlFor={`order-message-${order._id}`}>Message</label>
         <textarea
           id={`order-message-${order._id}`}
+          ref={messageInput}
           value={message}
           maxLength={1000}
           rows={2}
-          placeholder="Write a message to BowlersX Support…"
+          placeholder="Write a message to BowlersX Support… (Enter to send, Shift+Enter for a new line)"
           onChange={(event) => setMessage(event.target.value)}
+          onKeyDown={onComposeKeyDown}
         />
         <button type="submit" disabled={!message.trim() || sending || !authToken}>
           <Send aria-hidden="true" />
