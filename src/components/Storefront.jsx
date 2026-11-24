@@ -107,9 +107,9 @@ export function ProductInfoModal({ productId, onClose }) {
     if (/At$/.test(String(value)) && typeof value === 'string' && !Number.isNaN(Date.parse(value))) return new Date(value).toLocaleString();
     return String(value);
   };
-  const shownKeys = new Set(['_id','__v','id','name','description','price','compareAtPrice','sale','availability','stock','brandName','categoryName','subcategoryName','sku','color','material','coverstock','core','finish','rg','differential','flarePotential','hookPotential','lengthRating','condition','images','imageUrl','weightOptions','weightPrices','weights','brand','category','subcategory']);
+  const shownKeys = new Set(['_id','__v','id','name','description','price','compareAtPrice','sale','availability','stock','brandName','categoryName','subcategoryName','sku','color','material','coverstock','core','finish','rg','differential','flarePotential','hookPotential','lengthRating','condition','images','imageUrl','weightOptions','weightPrices','weights','brand','category','subcategory','createdAt','updatedAt','uploadedAt','modifiedAt','publishedAt','created_at','updated_at','uploadDate','dateUploaded','dateUpdated','lastUpdated']);
   const extraDetails = product ? Object.entries(product)
-    .filter(([key, value]) => !shownKeys.has(key) && value !== '' && value != null && value !== false)
+    .filter(([key, value]) => !shownKeys.has(key) && !/(created|updated|uploaded|modified)/i.test(key) && value !== '' && value != null && value !== false)
     .map(([key, value]) => [labelize(key), formatValue(value)])
     .filter(([, value]) => value) : [];
 
